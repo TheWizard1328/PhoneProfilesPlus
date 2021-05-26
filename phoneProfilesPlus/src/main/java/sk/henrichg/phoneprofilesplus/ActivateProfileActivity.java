@@ -1,33 +1,35 @@
 package sk.henrichg.phoneprofilesplus;
 
 import android.annotation.SuppressLint;
-import android.app.Fragment;
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
-import android.util.DisplayMetrics;
-import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.WindowManager;
-import android.view.WindowManager.LayoutParams;
 import android.widget.ImageView;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.widget.TooltipCompat;
+import androidx.fragment.app.Fragment;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.getkeepsafe.taptargetview.TapTarget;
 import com.getkeepsafe.taptargetview.TapTargetSequence;
-import com.labo.kaji.relativepopupwindow.RelativePopupWindow;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ActivateProfileActivity extends AppCompatActivity {
 
-    private static ActivateProfileActivity instance;
+    private boolean activityStarted = false;
 
     private Toolbar toolbar;
     private ImageView eventsRunStopIndicator;
@@ -35,18 +37,90 @@ public class ActivateProfileActivity extends AppCompatActivity {
     public boolean targetHelpsSequenceStarted;
     public static final String PREF_START_TARGET_HELPS = "activate_profiles_activity_start_target_helps";
 
+    private final BroadcastReceiver refreshGUIBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive( Context context, Intent intent ) {
+//            PPApplication.logE("[IN_BROADCAST] ActivateProfileActivity.refreshGUIBroadcastReceiver", "xxx");
+            //boolean refresh = intent.getBooleanExtra(RefreshActivitiesBroadcastReceiver.EXTRA_REFRESH, true);
+            boolean refreshIcons = intent.getBooleanExtra(RefreshActivitiesBroadcastReceiver.EXTRA_REFRESH_ICONS, false);
+            ActivateProfileActivity.this.refreshGUI(/*refresh,*//*true,*/  refreshIcons);
+        }
+    };
+
+    static final String EXTRA_SHOW_TARGET_HELPS_FOR_ACTIVITY = "show_target_helps_for_activity";
+    private final BroadcastReceiver showTargetHelpsBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive( Context context, Intent intent ) {
+//            PPApplication.logE("[IN_BROADCAST] ActivateProfileActivity.showTargetHelpsBroadcastReceiver", "xxx");
+            if (ActivateProfileActivity.this.isFinishing()) {
+                if (ActivatorTargetHelpsActivity.activity != null)
+                    ActivatorTargetHelpsActivity.activity.finish();
+                ActivatorTargetHelpsActivity.activity = null;
+                return;
+            }
+            if (ActivateProfileActivity.this.isDestroyed()) {
+                if (ActivatorTargetHelpsActivity.activity != null)
+                    ActivatorTargetHelpsActivity.activity.finish();
+                ActivatorTargetHelpsActivity.activity = null;
+                return;
+            }
+
+            if (ApplicationPreferences.prefActivatorActivityStartTargetHelps ||
+                    ApplicationPreferences.prefActivatorFragmentStartTargetHelps ||
+                    ApplicationPreferences.prefActivatorAdapterStartTargetHelps) {
+
+                boolean forActivity = intent.getBooleanExtra(EXTRA_SHOW_TARGET_HELPS_FOR_ACTIVITY, false);
+                if (forActivity)
+                    ActivateProfileActivity.this.showTargetHelps();
+                else {
+                    Fragment fragment = ActivateProfileActivity.this.getSupportFragmentManager().findFragmentById(R.id.activate_profile_list);
+                    if (fragment != null) {
+                        ((ActivateProfileListFragment) fragment).showTargetHelps();
+                    }
+                }
+            }
+            else {
+                if (ActivatorTargetHelpsActivity.activity != null)
+                    ActivatorTargetHelpsActivity.activity.finish();
+                ActivatorTargetHelpsActivity.activity = null;
+            }
+        }
+    };
+
+    private final BroadcastReceiver finishBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive( Context context, Intent intent ) {
+//            PPApplication.logE("[IN_BROADCAST] ActivateProfileActivity.finishBroadcastReceiver", "xxx");
+            String action = intent.getAction();
+            if (action != null) {
+                if (action.equals(PPApplication.ACTION_FINISH_ACTIVITY)) {
+                    String what = intent.getStringExtra(PPApplication.EXTRA_WHAT_FINISH);
+                    if (what.equals("activator")) {
+                        try {
+                            ActivateProfileActivity.this.setResult(Activity.RESULT_CANCELED);
+                            ActivateProfileActivity.this.finishAffinity();
+                        } catch (Exception e) {
+                            PPApplication.recordException(e);
+                        }
+                    }
+                }
+            }
+        }
+    };
+
     @SuppressLint("NewApi")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        instance = this;
+        //PPApplication.logE("ActivateProfileActivity.onCreate", "xxx");
 
-        GlobalGUIRoutines.setTheme(this, true, true, false);
-        GlobalGUIRoutines.setLanguage(getBaseContext());
+        GlobalGUIRoutines.setTheme(this, true, true/*, false*/, true);
+        //GlobalGUIRoutines.setLanguage(this);
 
-    // set window dimensions ----------------------------------------------------------
+    // set window dimensions - not needed, Activator uses Dialog theme ------------------------------
 
+    /*
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND, WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         LayoutParams params = getWindow().getAttributes();
         params.alpha = 1.0f;
@@ -56,10 +130,10 @@ public class ActivateProfileActivity extends AppCompatActivity {
         int actionBarHeight;
 
         // display dimensions
-        DisplayMetrics displaymetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(displaymetrics);
-        float popupWidth = displaymetrics.widthPixels;
-        float popupMaxHeight = displaymetrics.heightPixels;
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        float popupWidth = displayMetrics.widthPixels;
+        float popupMaxHeight = displayMetrics.heightPixels;
         //Display display = getWindowManager().getDefaultDisplay();
         //float popupWidth = display.getWidth();
         //popupMaxHeight = display.getHeight();
@@ -68,7 +142,7 @@ public class ActivateProfileActivity extends AppCompatActivity {
 
         // action bar height
         TypedValue tv = new TypedValue();
-        if (getTheme().resolveAttribute(android.support.v7.appcompat.R.attr.actionBarSize, tv, true))
+        if (getTheme().resolveAttribute(androidx.appcompat.R.attr.actionBarSize, tv, true))
             actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data,getResources().getDisplayMetrics());
 
         // set max. dimensions for display orientation
@@ -92,23 +166,25 @@ public class ActivateProfileActivity extends AppCompatActivity {
 
         final float scale = getResources().getDisplayMetrics().density;
 
+        boolean applicationActivatorGridLayout = ApplicationPreferences.applicationActivatorGridLayout(getApplicationContext());
+
         // add header height
-        if (ApplicationPreferences.applicationActivatorHeader(getApplicationContext())) {
-            if (!ApplicationPreferences.applicationActivatorGridLayout(getApplicationContext()))
-                popupHeight = popupHeight + 62f * scale;
+        //if (ApplicationPreferences.applicationActivatorHeader(getApplicationContext())) {
+            if (!applicationActivatorGridLayout)
+                popupHeight = popupHeight + 50f * scale;
             else
-                popupHeight = popupHeight + 74f * scale;
-        }
+                popupHeight = popupHeight + 59f * scale;
+        //}
 
         // add toolbar height
         popupHeight = popupHeight + (25f + 1f + 3f) * scale;
 
-        DataWrapper dataWrapper = new DataWrapper(getApplicationContext(), false, 0);
-        int profileCount = DatabaseHandler.getInstance(getApplicationContext()).getProfilesCount(true, getApplicationContext());
+        DataWrapper dataWrapper = new DataWrapper(getApplicationContext(), false, 0, false);
+        int profileCount = DatabaseHandler.getInstance(getApplicationContext()).getProfilesCount(true);
         dataWrapper.invalidateDataWrapper();
 
         if (profileCount > 0) {
-            if (!ApplicationPreferences.applicationActivatorGridLayout(getApplicationContext())) {
+            if (!applicationActivatorGridLayout) {
                 // add list items height
                 popupHeight = popupHeight + (60f * scale * profileCount); // item
                 popupHeight = popupHeight + (1f * scale * (profileCount)); // divider
@@ -134,7 +210,7 @@ public class ActivateProfileActivity extends AppCompatActivity {
 
         // set popup window dimensions
         getWindow().setLayout((int) (popupWidth + 0.5f), (int) (popupHeight + 0.5f));
-
+    */
 
     //-----------------------------------------------------------------------------------
 
@@ -147,125 +223,275 @@ public class ActivateProfileActivity extends AppCompatActivity {
         //long nanoTimeStart = PPApplication.startMeasuringRunTime();
 
         setContentView(R.layout.activity_activate_profile);
+        setTaskDescription(new ActivityManager.TaskDescription(getString(R.string.ppp_app_name)));
+
+        boolean doServiceStart = startPPServiceWhenNotStarted();
+        if (doServiceStart) {
+            finish();
+            return;
+        }
+        else
+        if (showNotStartedToast()) {
+            finish();
+            return;
+        }
+
+        activityStarted = true;
 
         //overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
 
         //PPApplication.getMeasuredRunTime(nanoTimeStart, "ActivateProfileActivity.onCreate - setContentView");
 
-        toolbar = findViewById(R.id.act_prof_tollbar);
+        toolbar = findViewById(R.id.act_prof_toolbar);
         setSupportActionBar(toolbar);
 
         if (getSupportActionBar() != null)
             getSupportActionBar().setTitle(R.string.title_activity_activator);
 
         eventsRunStopIndicator = findViewById(R.id.act_prof_run_stop_indicator);
-        eventsRunStopIndicator.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
+        TooltipCompat.setTooltipText(eventsRunStopIndicator, getString(R.string.editor_activity_targetHelps_trafficLightIcon_title));
+        eventsRunStopIndicator.setOnClickListener(view -> {
+            if (!isFinishing()) {
                 RunStopIndicatorPopupWindow popup = new RunStopIndicatorPopupWindow(getDataWrapper(), ActivateProfileActivity.this);
 
                 View contentView = popup.getContentView();
                 contentView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-                int measuredW = contentView.getMeasuredWidth();
-                //int measuredH = contentView.getMeasuredHeight();
-                //Log.d("ActivateProfileActivity.eventsRunStopIndicator.onClick","measuredW="+measuredW);
-                //Log.d("ActivateProfileActivity.eventsRunStopIndicator.onClick","measuredH="+measuredH);
+                int popupWidth = contentView.getMeasuredWidth();
+                //int popupHeight = contentView.getMeasuredHeight();
+                //Log.d("ActivateProfileActivity.eventsRunStopIndicator.onClick","popupWidth="+popupWidth);
+                //Log.d("ActivateProfileActivity.eventsRunStopIndicator.onClick","popupHeight="+popupHeight);
 
-                int[] location = new int[2];
-                eventsRunStopIndicator.getLocationOnScreen(location);
+                int[] runStopIndicatorLocation = new int[2];
+                eventsRunStopIndicator.getLocationOnScreen(runStopIndicatorLocation);
+                //eventsRunStopIndicator.getLocationInWindow(runStopIndicatorLocation);
 
                 int x = 0;
                 int y = 0;
 
-                if (location[0] + eventsRunStopIndicator.getWidth() - measuredW < 0)
-                    x = -(location[0] + eventsRunStopIndicator.getWidth() - measuredW);
+                if (runStopIndicatorLocation[0] + eventsRunStopIndicator.getWidth() - popupWidth < 0)
+                    x = -(runStopIndicatorLocation[0] + eventsRunStopIndicator.getWidth() - popupWidth);
 
-                popup.setClippingEnabled(false);
+                popup.setClippingEnabled(false); // disabled for draw outside activity
                 popup.showOnAnchor(eventsRunStopIndicator, RelativePopupWindow.VerticalPosition.ALIGN_TOP,
                         RelativePopupWindow.HorizontalPosition.ALIGN_RIGHT, x, y, false);
             }
         });
 
-        refreshGUI(false);
+        getApplicationContext().registerReceiver(finishBroadcastReceiver, new IntentFilter(PPApplication.ACTION_FINISH_ACTIVITY));
+    }
 
-    //-----------------------------------------------------------------------------------------		
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        boolean doServiceStart = startPPServiceWhenNotStarted();
+        if (doServiceStart) {
+            if (!isFinishing())
+                finish();
+            return;
+        }
+        else
+        if (showNotStartedToast()) {
+            if (!isFinishing())
+                finish();
+            return;
+        }
+
+        //PPApplication.logE("ActivateProfileActivity.onStart", "xxx");
+
+        if (activityStarted) {
+            Intent intent = new Intent(PPApplication.ACTION_FINISH_ACTIVITY);
+            intent.putExtra(PPApplication.EXTRA_WHAT_FINISH, "editor");
+            getApplicationContext().sendBroadcast(intent);
+
+            LocalBroadcastManager.getInstance(this).registerReceiver(refreshGUIBroadcastReceiver,
+                    new IntentFilter(PPApplication.PACKAGE_NAME + ".RefreshActivatorGUIBroadcastReceiver"));
+            LocalBroadcastManager.getInstance(this).registerReceiver(showTargetHelpsBroadcastReceiver,
+                    new IntentFilter(PPApplication.PACKAGE_NAME + ".ShowActivatorTargetHelpsBroadcastReceiver"));
+
+            refreshGUI(/*true,*/ false);
+        }
+        else {
+            if (!isFinishing())
+                finish();
+        }
+
+        //-----------------------------------------------------------------------------------------
 
     }
 
-    public static ActivateProfileActivity getInstance()
-    {
-        return instance;
+    @SuppressWarnings("SameReturnValue")
+    private boolean showNotStartedToast() {
+//        PPApplication.logE("[APP_START] ActivateProfileActivity.showNotStartedToast", "xxx");
+        PPApplication.setApplicationFullyStarted(getApplicationContext());
+        return false;
+/*        boolean applicationStarted = PPApplication.getApplicationStarted(true);
+        boolean fullyStarted = PPApplication.applicationFullyStarted;
+        if (!applicationStarted) {
+            String text = getString(R.string.ppp_app_name) + " " + getString(R.string.application_is_not_started);
+            PPApplication.showToast(getApplicationContext(), text, Toast.LENGTH_SHORT);
+            return true;
+        }
+        if (!fullyStarted) {
+            if ((PPApplication.startTimeOfApplicationStart > 0) &&
+                    ((Calendar.getInstance().getTimeInMillis() - PPApplication.startTimeOfApplicationStart) > PPApplication.APPLICATION_START_DELAY)) {
+                Intent activityIntent = new Intent(this, WorkManagerNotWorkingActivity.class);
+                // clear all opened activities
+                activityIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(activityIntent);
+            }
+            else {
+                String text = getString(R.string.ppp_app_name) + " " + getString(R.string.application_is_starting_toast);
+                PPApplication.showToast(getApplicationContext(), text, Toast.LENGTH_SHORT);
+            }
+            return true;
+        }
+        return false;*/
     }
+
+    private boolean startPPServiceWhenNotStarted() {
+        // this is for list widget header
+        boolean serviceStarted = PhoneProfilesService.isServiceRunning(getApplicationContext(), PhoneProfilesService.class, false);
+        if (!serviceStarted) {
+            /*if (PPApplication.logEnabled()) {
+                PPApplication.logE("EditorProfilesActivity.onStart", "application is not started");
+                PPApplication.logE("EditorProfilesActivity.onStart", "service instance=" + PhoneProfilesService.getInstance());
+                if (PhoneProfilesService.getInstance() != null)
+                    PPApplication.logE("EditorProfilesActivity.onStart", "service hasFirstStart=" + PhoneProfilesService.getInstance().getServiceHasFirstStart());
+            }*/
+            // start PhoneProfilesService
+            //PPApplication.firstStartServiceStarted = false;
+            PPApplication.setApplicationStarted(getApplicationContext(), true);
+            Intent serviceIntent = new Intent(getApplicationContext(), PhoneProfilesService.class);
+            //serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, true);
+            //serviceIntent.putExtra(PhoneProfilesService.EXTRA_DEACTIVATE_PROFILE, true);
+            serviceIntent.putExtra(PhoneProfilesService.EXTRA_ACTIVATE_PROFILES, true);
+            serviceIntent.putExtra(PPApplication.EXTRA_APPLICATION_START, true);
+            serviceIntent.putExtra(PPApplication.EXTRA_DEVICE_BOOT, false);
+            serviceIntent.putExtra(PhoneProfilesService.EXTRA_START_ON_PACKAGE_REPLACE, false);
+//            PPApplication.logE("[START_PP_SERVICE] ActivateProfileActivity.startPPServiceWhenNotStarted", "(1)");
+            PPApplication.startPPService(this, serviceIntent);
+            return true;
+        } else {
+            //noinspection RedundantIfStatement
+            if ((PhoneProfilesService.getInstance() == null) || (!PhoneProfilesService.getInstance().getServiceHasFirstStart())) {
+                /*if (PPApplication.logEnabled()) {
+                    PPApplication.logE("EditorProfilesActivity.onStart", "application is started");
+                    PPApplication.logE("EditorProfilesActivity.onStart", "service instance=" + PhoneProfilesService.getInstance());
+                    if (PhoneProfilesService.getInstance() != null)
+                        PPApplication.logE("EditorProfilesActivity.onStart", "service hasFirstStart=" + PhoneProfilesService.getInstance().getServiceHasFirstStart());
+                }*/
+                // start PhoneProfilesService
+                //PPApplication.firstStartServiceStarted = false;
+
+                /*
+                Intent serviceIntent = new Intent(getApplicationContext(), PhoneProfilesService.class);
+                //serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, true);
+                //serviceIntent.putExtra(PhoneProfilesService.EXTRA_DEACTIVATE_PROFILE, true);
+                serviceIntent.putExtra(PhoneProfilesService.EXTRA_ACTIVATE_PROFILES, false);
+                serviceIntent.putExtra(PPApplication.EXTRA_APPLICATION_START, true);
+                serviceIntent.putExtra(PPApplication.EXTRA_DEVICE_BOOT, false);
+                serviceIntent.putExtra(PhoneProfilesService.EXTRA_START_ON_PACKAGE_REPLACE, false);
+                PPApplication.logE("[START_PP_SERVICE] ActivateProfileActivity.startPPServiceWhenNotStarted", "(2)");
+                PPApplication.startPPService(this, serviceIntent);
+                */
+
+                return true;
+            }
+            //else {
+            //    PPApplication.logE("EditorProfilesActivity.onStart", "application and service is started");
+            //}
+        }
+
+        return false;
+    }
+
+    /*
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (targetHelpsSequenceStarted) {
+            if (ActivatorTargetHelpsActivity.activity != null)
+                ActivatorTargetHelpsActivity.activity.finish();
+            targetHelpsSequenceStarted = false;
+        }
+    }
+    */
 
     @Override
     protected void onStop()
     {
         super.onStop();
-        if (instance == this)
-            instance = null;
-        ActivatorTargetHelpsActivity.activatorActivity = null;
-    }
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(refreshGUIBroadcastReceiver);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(showTargetHelpsBroadcastReceiver);
 
-    @Override
-    protected void onResume()
-    {
-        //Debug.stopMethodTracing();
-        super.onResume();
-
-        //Log.d("ActivateProfilesActivity.onResume", "xxx");
-
-        if (instance == null)
-        {
-            instance = this;
-            refreshGUI(false);
+        if (targetHelpsSequenceStarted) {
+            if (ActivatorTargetHelpsActivity.activity != null)
+                ActivatorTargetHelpsActivity.activity.finish();
+            ActivatorTargetHelpsActivity.activity = null;
+            targetHelpsSequenceStarted = false;
         }
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            getApplicationContext().unregisterReceiver(finishBroadcastReceiver);
+        } catch (Exception e) {
+            //PPApplication.recordException(e);
+        }
+    }
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        toolbar.inflateMenu(R.menu.activity_activate_profile);
+        toolbar.inflateMenu(R.menu.activator_top_bar);
         return true;
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
+        boolean ret = super.onPrepareOptionsMenu(menu);
 
         // change global events run/stop menu item title
         MenuItem menuItem = menu.findItem(R.id.menu_restart_events);
         if (menuItem != null)
         {
-            menuItem.setVisible(Event.getGlobalEventsRunning(getApplicationContext()));
+            menuItem.setVisible(Event.getGlobalEventsRunning());
+            menuItem.setEnabled(PPApplication.getApplicationStarted(true));
         }
 
-        return super.onPrepareOptionsMenu(menu);
+        return ret;
     }
 
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-        case R.id.menu_edit_profiles:
+        int itemId = item.getItemId();
+        if (itemId == R.id.menu_edit_profiles) {
             Intent intent = new Intent(getApplicationContext(), EditorProfilesActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             intent.putExtra(PPApplication.EXTRA_STARTUP_SOURCE, PPApplication.STARTUP_SOURCE_ACTIVATOR);
             getApplicationContext().startActivity(intent);
 
             finish();
 
             return true;
-        case R.id.menu_restart_events:
+        }
+        else
+        if (itemId == R.id.menu_restart_events) {
             DataWrapper dataWrapper = getDataWrapper();
             if (dataWrapper != null) {
-                dataWrapper.addActivityLog(DatabaseHandler.ALTYPE_RESTARTEVENTS, null, null, null, 0);
+                //dataWrapper.addActivityLog(DatabaseHandler.ALTYPE_RESTARTEVENTS, null, null, null, 0);
 
                 // ignore manual profile activation
                 // and unblock forceRun events
-                PPApplication.logE("$$$ restartEvents", "from ActivateProfileActivity.onOptionsItemSelected menu_restart_events");
+                //PPApplication.logE("$$$ restartEvents", "from ActivateProfileActivity.onOptionsItemSelected menu_restart_events");
                 dataWrapper.restartEventsWithAlert(this);
             }
             return true;
-        default:
+        }
+        else {
             return super.onOptionsItemSelected(item);
         }
     }
@@ -282,29 +508,46 @@ public class ActivateProfileActivity extends AppCompatActivity {
     }
     */
 
-    public void refreshGUI(boolean refreshIcons)
+    /*
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data)
     {
-        final boolean _refreshIcons = refreshIcons;
+        if (requestCode == Permissions.REQUEST_CODE + Permissions.GRANT_TYPE_PROFILE) {
+            if (data != null) {
+                long profileId = data.getLongExtra(PPApplication.EXTRA_PROFILE_ID, 0);
+                int startupSource = data.getIntExtra(PPApplication.EXTRA_STARTUP_SOURCE, 0);
+                boolean mergedProfile = data.getBooleanExtra(Permissions.EXTRA_MERGED_PROFILE, false);
+                boolean activateProfile = data.getBooleanExtra(Permissions.EXTRA_ACTIVATE_PROFILE, false);
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
+                if (activateProfile && (getDataWrapper() != null)) {
+                    Profile profile = getDataWrapper().getProfileById(profileId, false, false, mergedProfile);
+                    getDataWrapper().activateProfileFromMainThread(profile, mergedProfile, startupSource, this);
+                }
+            }
+        }
+    }
+    */
+
+    private void refreshGUI(/*final boolean refresh,*/ final boolean refreshIcons)
+    {
+        //runOnUiThread(new Runnable() {
+        //    @Override
+        //    public void run() {
                 setEventsRunStopIndicator();
                 invalidateOptionsMenu();
 
-                Fragment fragment = getFragmentManager().findFragmentById(R.id.activate_profile_list);
+                Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.activate_profile_list);
 
-                if (fragment != null)
-                {
-                    ((ActivateProfileListFragment)fragment).refreshGUI(_refreshIcons);
+                if (fragment != null) {
+                    ((ActivateProfileListFragment) fragment).refreshGUI(/*refresh,*/ refreshIcons);
                 }
-            }
-        });
+        //    }
+        //});
     }
 
     private DataWrapper getDataWrapper()
     {
-        Fragment fragment = getFragmentManager().findFragmentById(R.id.activate_profile_list);
+        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.activate_profile_list);
         if (fragment != null)
             return ((ActivateProfileListFragment)fragment).activityDataWrapper;
         else
@@ -313,89 +556,113 @@ public class ActivateProfileActivity extends AppCompatActivity {
 
     public void setEventsRunStopIndicator()
     {
-        if (Event.getGlobalEventsRunning(getApplicationContext()))
+        //boolean whiteTheme = ApplicationPreferences.applicationTheme(getApplicationContext(), true).equals("white");
+        if (Event.getGlobalEventsRunning())
         {
-            if (Event.getEventsBlocked(getApplicationContext()))
-                eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_manual_activation);
-            else
-                eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_running);
+            //if (ApplicationPreferences.prefEventsBlocked) {
+            if (Event.getEventsBlocked(this.getApplicationContext())) {
+                //if (whiteTheme)
+                //    eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_manual_activation_white);
+                //else
+                    eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_manual_activation);
+            }
+            else {
+                //if (whiteTheme)
+                //    eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_running_white);
+                //else
+                    eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_running);
+            }
         }
-        else
-            eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_stoppped);
+        else {
+            //if (whiteTheme)
+            //    eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_stopped_white);
+            //else
+                eventsRunStopIndicator.setImageResource(R.drawable.ic_run_events_indicator_stopped);
+        }
     }
 
     public void startTargetHelpsActivity() {
-        /*if (Build.VERSION.SDK_INT <= 19)
-            // TapTarget.forToolbarMenuItem FC :-(
-            // Toolbar.findViewById() returns null
-            return;*/
-
-        ApplicationPreferences.getSharedPreferences(this);
-
-        if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS, true) ||
-                ApplicationPreferences.preferences.getBoolean(ActivateProfileListFragment.PREF_START_TARGET_HELPS, true) ||
-                ApplicationPreferences.preferences.getBoolean(ActivateProfileListAdapter.PREF_START_TARGET_HELPS, true)) {
+        if (ApplicationPreferences.prefActivatorActivityStartTargetHelps ||
+                ApplicationPreferences.prefActivatorFragmentStartTargetHelps ||
+                ApplicationPreferences.prefActivatorAdapterStartTargetHelps) {
 
             //Log.d("ActivateProfilesActivity.startTargetHelpsActivity", "xxx");
 
-            ActivatorTargetHelpsActivity.activatorActivity = this;
+            //ActivatorTargetHelpsActivity.activatorActivity = this;
             Intent intent = new Intent(this, ActivatorTargetHelpsActivity.class);
             startActivity(intent);
-
         }
     }
 
-    public void showTargetHelps() {
+    private void showTargetHelps() {
         /*if (Build.VERSION.SDK_INT <= 19)
             // TapTarget.forToolbarMenuItem FC :-(
             // Toolbar.findViewById() returns null
             return;*/
 
-        ApplicationPreferences.getSharedPreferences(this);
+        boolean startTargetHelps = ApplicationPreferences.prefActivatorActivityStartTargetHelps;
 
-        if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS, true) ||
-                ApplicationPreferences.preferences.getBoolean(ActivateProfileListFragment.PREF_START_TARGET_HELPS, true) ||
-                ApplicationPreferences.preferences.getBoolean(ActivateProfileListAdapter.PREF_START_TARGET_HELPS, true)) {
+        if (startTargetHelps ||
+                ApplicationPreferences.prefActivatorFragmentStartTargetHelps ||
+                ApplicationPreferences.prefActivatorAdapterStartTargetHelps) {
 
             //Log.d("ActivateProfilesActivity.showTargetHelps", "PREF_START_TARGET_HELPS_ORDER=true");
 
-            if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS, true)) {
+            if (startTargetHelps) {
                 //Log.d("ActivateProfilesActivity.showTargetHelps", "PREF_START_TARGET_HELPS=true");
 
-                SharedPreferences.Editor editor = ApplicationPreferences.preferences.edit();
+                SharedPreferences.Editor editor = ApplicationPreferences.getEditor(getApplicationContext());
                 editor.putBoolean(PREF_START_TARGET_HELPS, false);
                 editor.apply();
+                ApplicationPreferences.prefActivatorActivityStartTargetHelps = false;
 
-                int circleColor = 0xFFFFFF;
-                if (ApplicationPreferences.applicationTheme(getApplicationContext()).equals("dark"))
-                    circleColor = 0x7F7F7F;
+                //String appTheme = ApplicationPreferences.applicationTheme(getApplicationContext(), true);
+                int outerCircleColor = R.color.tabTargetHelpOuterCircleColor;
+//                if (appTheme.equals("dark"))
+//                    outerCircleColor = R.color.tabTargetHelpOuterCircleColor_dark;
+                int targetCircleColor = R.color.tabTargetHelpTargetCircleColor;
+//                if (appTheme.equals("dark"))
+//                    targetCircleColor = R.color.tabTargetHelpTargetCircleColor_dark;
+                int textColor = R.color.tabTargetHelpTextColor;
+//                if (appTheme.equals("dark"))
+//                    textColor = R.color.tabTargetHelpTextColor_dark;
+                //boolean tintTarget = !appTheme.equals("white");
 
                 final TapTargetSequence sequence = new TapTargetSequence(ActivatorTargetHelpsActivity.activity);
                 List<TapTarget> targets = new ArrayList<>();
-                if (Event.getGlobalEventsRunning(getApplicationContext())) {
+                //noinspection IfStatementWithIdenticalBranches
+                if (Event.getGlobalEventsRunning()) {
                     int id = 1;
                     try {
                         View editorActionView = toolbar.findViewById(R.id.menu_edit_profiles);
                         targets.add(
                                 TapTarget.forView(editorActionView, getString(R.string.activator_activity_targetHelps_editor_title), getString(R.string.activator_activity_targetHelps_editor_description_ppp))
-                                        .targetCircleColorInt(circleColor)
-                                        .textColorInt(0xFFFFFF)
+                                        .outerCircleColor(outerCircleColor)
+                                        .targetCircleColor(targetCircleColor)
+                                        .textColor(textColor)
+                                        .tintTarget(true)
                                         .drawShadow(true)
                                         .id(id)
                         );
                         ++id;
-                    } catch (Exception ignored) {} // not in action bar?
+                    } catch (Exception e) {
+                        //PPApplication.recordException(e);
+                    }
                     try {
                         View restartEventsActionView = toolbar.findViewById(R.id.menu_restart_events);
                         targets.add(
                                 TapTarget.forView(restartEventsActionView, getString(R.string.editor_activity_targetHelps_restartEvents_title), getString(R.string.editor_activity_targetHelps_restartEvents_description))
-                                        .targetCircleColorInt(circleColor)
-                                        .textColorInt(0xFFFFFF)
+                                        .outerCircleColor(outerCircleColor)
+                                        .targetCircleColor(targetCircleColor)
+                                        .textColor(textColor)
+                                        .tintTarget(true)
                                         .drawShadow(true)
                                         .id(id)
                         );
                         ++id;
-                    } catch (Exception ignored) {} // not in action bar?
+                    } catch (Exception e) {
+                        //PPApplication.recordException(e);
+                    }
 
                     sequence.targets(targets);
                 }
@@ -405,13 +672,17 @@ public class ActivateProfileActivity extends AppCompatActivity {
                         View editorActionView = toolbar.findViewById(R.id.menu_edit_profiles);
                         targets.add(
                                 TapTarget.forView(editorActionView, getString(R.string.activator_activity_targetHelps_editor_title), getString(R.string.activator_activity_targetHelps_editor_description_ppp))
-                                        .targetCircleColorInt(circleColor)
-                                        .textColorInt(0xFFFFFF)
+                                        .outerCircleColor(outerCircleColor)
+                                        .targetCircleColor(targetCircleColor)
+                                        .textColor(textColor)
+                                        .tintTarget(true)
                                         .drawShadow(true)
                                         .id(id)
                         );
                         ++id;
-                    } catch (Exception ignored) {} // not in action bar?
+                    } catch (Exception e) {
+                        //PPApplication.recordException(e);
+                    }
 
                     sequence.targets(targets);
                 }
@@ -421,7 +692,7 @@ public class ActivateProfileActivity extends AppCompatActivity {
                     @Override
                     public void onSequenceFinish() {
                         targetHelpsSequenceStarted = false;
-                        Fragment fragment = getFragmentManager().findFragmentById(R.id.activate_profile_list);
+                        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.activate_profile_list);
                         if (fragment != null)
                         {
                             ((ActivateProfileListFragment)fragment).showTargetHelps();
@@ -437,22 +708,27 @@ public class ActivateProfileActivity extends AppCompatActivity {
                     public void onSequenceCanceled(TapTarget lastTarget) {
                         targetHelpsSequenceStarted = false;
                         final Handler handler = new Handler(getMainLooper());
-                        handler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (ActivatorTargetHelpsActivity.activity != null) {
-                                    //Log.d("ActivateProfilesActivity.showTargetHelps", "finish activity");
+                        handler.postDelayed(() -> {
+//                                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=ActivateProfileActivity.showTargetHelps (1)");
+
+                            if (ActivatorTargetHelpsActivity.activity != null) {
+                                //Log.d("ActivateProfilesActivity.showTargetHelps", "finish activity");
+                                try {
                                     ActivatorTargetHelpsActivity.activity.finish();
-                                    ActivatorTargetHelpsActivity.activity = null;
-                                    ActivatorTargetHelpsActivity.activatorActivity = null;
+                                } catch (Exception e) {
+                                    PPApplication.recordException(e);
                                 }
+                                ActivatorTargetHelpsActivity.activity = null;
+                                //ActivatorTargetHelpsActivity.activatorActivity = null;
                             }
                         }, 500);
 
-                        SharedPreferences.Editor editor = ApplicationPreferences.preferences.edit();
+                        SharedPreferences.Editor editor = ApplicationPreferences.getEditor(getApplicationContext());
                         editor.putBoolean(ActivateProfileListFragment.PREF_START_TARGET_HELPS, false);
                         editor.putBoolean(ActivateProfileListAdapter.PREF_START_TARGET_HELPS, false);
                         editor.apply();
+                        ApplicationPreferences.prefActivatorFragmentStartTargetHelps = false;
+                        ApplicationPreferences.prefActivatorAdapterStartTargetHelps = false;
                     }
                 });
                 sequence.continueOnCancel(true)
@@ -462,26 +738,40 @@ public class ActivateProfileActivity extends AppCompatActivity {
             }
             else {
                 //Log.d("ActivateProfilesActivity.showTargetHelps", "PREF_START_TARGET_HELPS=false");
+                //final Context context = getApplicationContext();
                 final Handler handler = new Handler(getMainLooper());
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        Fragment fragment = getFragmentManager().findFragmentById(R.id.activate_profile_list);
-                        if (fragment != null)
-                        {
-                            ((ActivateProfileListFragment)fragment).showTargetHelps();
+                handler.postDelayed(() -> {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=ActivateProfileActivity.showTargetHelps (2)");
+
+//                        PPApplication.logE("[LOCAL_BROADCAST_CALL] ActivateProfileActivity.showTargetHelps", "xxx");
+                    Intent intent = new Intent(PPApplication.PACKAGE_NAME + ".ShowActivatorTargetHelpsBroadcastReceiver");
+                    intent.putExtra(ActivateProfileActivity.EXTRA_SHOW_TARGET_HELPS_FOR_ACTIVITY, false);
+                    LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
+                    /*if (ActivateProfileActivity.getInstance() != null) {
+                        Fragment fragment = ActivateProfileActivity.getInstance().getFragmentManager().findFragmentById(R.id.activate_profile_list);
+                        if (fragment != null) {
+                            ((ActivateProfileListFragment) fragment).showTargetHelps();
                         }
-                    }
+                    }*/
                 }, 500);
             }
         }
         else {
-            if (ActivatorTargetHelpsActivity.activity != null) {
-                //Log.d("ActivateProfilesActivity.showTargetHelps", "finish activity");
-                ActivatorTargetHelpsActivity.activity.finish();
-                ActivatorTargetHelpsActivity.activity = null;
-                ActivatorTargetHelpsActivity.activatorActivity = null;
-            }
+            final Handler handler = new Handler(getMainLooper());
+            handler.postDelayed(() -> {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=ActivateProfileActivity.showTargetHelps (3)");
+
+                if (ActivatorTargetHelpsActivity.activity != null) {
+                    //Log.d("ActivateProfilesActivity.showTargetHelps", "finish activity");
+                    try {
+                        ActivatorTargetHelpsActivity.activity.finish();
+                    } catch (Exception e) {
+                        PPApplication.recordException(e);
+                    }
+                    ActivatorTargetHelpsActivity.activity = null;
+                    //ActivatorTargetHelpsActivity.activatorActivity = null;
+                }
+            }, 500);
         }
     }
 

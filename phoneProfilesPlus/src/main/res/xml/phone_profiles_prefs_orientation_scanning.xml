@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:key="orientationScanningCategory"
+    app:title="@string/phone_profiles_pref_category_orientation_scanning">
+
+    <Preference
+        app:key="applicationEventOrientationInfo"
+        app:title="@string/phone_profiles_pref_applicationEventOrientation_info"
+        app:summary="@string/empty_string"
+        app:layout="@layout/mp_preference_material_widget" />
+    <SwitchPreferenceCompat
+        app:key="applicationEventOrientationEnableScannig"
+        app:title="@string/phone_profiles_pref_applicationEventOrientationEnableScanning"
+        app:defaultValue="false"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="applicationEventOrientationScanIntervalInfo"
+        app:title="@string/phone_profiles_pref_applicationEventOrientationScanInterval"
+        app:summary="@string/phone_profiles_pref_applicationEventScanIntervalInfo_summary1"
+        app:widgetLayout="@layout/widget_exclamation_preference"
+        app:dependency="applicationEventOrientationEnableScannig"
+        app:layout="@layout/mp_preference_material_widget" />
+    <sk.henrichg.phoneprofilesplus.BetterNumberPickerPreferenceX
+        app:key="applicationEventOrientationScanInterval"
+        app:summary="@string/phone_profiles_pref_applicationEventOrientationScanInterval"
+        app:title="@string/phone_profiles_pref_applicationEventOrientationScanInterval"
+        app:defaultValue="10"
+        app:min="5"
+        app:max="60"
+        app:dependency="applicationEventOrientationEnableScannig"
+        app:layout="@layout/mp_preference_material_widget" />
+    <ListPreference
+        app:key="applicationEventOrientationScanInPowerSaveMode"
+        app:title="@string/phone_profiles_pref_applicationEventOrientationScanInPowerSaveMode"
+        app:summary="@string/array_pref_scanInPowerSaveMode_2xInterval"
+        app:defaultValue="1"
+        app:entries="@array/scanInPowerSaveModeArray"
+        app:entryValues="@array/scanInPowerSaveModeValues"
+        app:dependency="applicationEventOrientationEnableScannig"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="applicationOrientationPowerSaveMode"
+        app:title="@string/phone_profiles_pref_applicationBatterySaver"
+        app:summary="@string/phone_profiles_pref_applicationBatterySaver_system"
+        app:dependency="applicationEventOrientationEnableScannig"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:layout="@layout/mp_preference_material_widget"/>
+    <SwitchPreferenceCompat
+        app:key="applicationEventOrientationScanOnlyWhenScreenIsOn"
+        app:title="@string/phone_profiles_pref_applicationEventScanOnlyWhenScreenIsOn"
+        app:defaultValue="true"
+        app:dependency="applicationEventOrientationEnableScannig"
+        app:layout="@layout/mp_preference_material_widget" />
+    
+</androidx.preference.PreferenceScreen>

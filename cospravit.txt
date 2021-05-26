@@ -1,3 +1,50 @@
+------------------------
+Ak sa spravi reboot, onDestrou PPService nastavi, ze nie je spustena aplikacia.
+Takze po boote sa PPService nespusti z PPApplication. Treba cakat na BOOT_COMPLETED.
+------------------------
+funkční nastavení pro Huawei P30 s Androidem 10 a EMUI 10.
+
+nastavení-aplikace- aplikace-PPP-podrobnosti o spotřebě energie-spouštění aplikací:
+Spravovat automaticky - ne
+Spravovat ručně 3x ano
+-automatické souštění
+-sekundární souštění
+-Spustit na ozadí
+------------------------
+
+Ulohy, ktore su spravene [x] a ktore nie [ ]:
+[x] location event (when at point X, radius Y)
+[x] app event (when app X is started)
+[x] Notification event lasts until notification is gone
+[x] expand/shrink event and profile preferences, maybe with a checkbox instead of an arrow and all active preferences are expanded – PPP use Android standard preference screens. Than I can only use subscreens. - Yes! If I understand you right, that was my idea.
+[x] profile event (only when profile X is active, can't end event)
+[x] notification event
+[x] Seconds in profile duration
+[x] 5 minutes as settable screen timeout
+[ ] Priority Notification Event
+[x] Restart events at boot option
+[x] Restart events shortcut for launcher
+[ ] Normal media volume, headphone media volume, Bluetooth media volume
+[ ] Sony's "Stamina" mode as profile preference - skor Power save change senzor
+[ ] USB connection to PC as storage device, USB connection to PC as camera, connection to USB stick in accessories parameter for events
+[x] Option to delete logs after x days
+[ ] Resizable grid in Activator
+[ ] option to hide PPP from Launcher
+[x] Not started/not shown option for app event/notification event (like WiFi and Bluetooth) (aka "Not in front/Not connected")
+[ ] Set min and max CPU frequency
+[ ] Open a website with profile
+[x] once and never again event (creatable with an additional button in starter, only start time, end time, start battery, gets deleted after end)
+[ ] toggle torch
+[ ] profile/event search
+[ ] "change wallpapper"->live wallpappers
+[ ] Persistent profile/event: sets its options every x minutes - asi periodic sensor
+[ ] Android Wear support?
+[ ] (AND, OR, XOR, NOT. Or at least NOT.)<-NOT is already available in most preferences. If that stays, that does the same.
+[ ] a plugin system? (very small core app, ability to install additional event preferences, maybe only time event preinstalled)
+[ ] PP&PPP for PC?
+
+------------------------
+
 System.Settings:
 notifications_use_ring_volume ---+--> ze by na odlinkovanie zvonenia a notifikacii?
 unlink_volumes_together ---------+
@@ -7,7 +54,6 @@ mode_ringer_streams_affected
 System.Global:
 heads_up_notifications_enabled
 
-
 Ako disablovat lockscreen, 2 kroky:
 1. nastavit, ze power tlacitko nema lockovat
   /data/system/locksettings.db - lockscreen.power_button_instantly_locks (0,1)
@@ -15,25 +61,8 @@ Ako disablovat lockscreen, 2 kroky:
 2. nastavit lockscreen timeout 
   Settings.Secure - lock_screen_lock_after_timeout (milisekundy)
 
-
-povolenie/zakazanie vybrovania pri dotyku: Settings.System.HAPTIC_FEEDBACK_ENABLED (0,1)
-
-
----- Power management:
-
-1. Ak je device v "Device Idle" mode, podla dokumentacie nerobi wifi scanning.
-2. Pocas "device idle" nerobit scanning, odchytavat broadcast na zmenu modu a ak sa
-   "Device Idle" vypne, zavolat EventsService (akoby to bol typ udalosti).
-3. Aplikacia sa moze dostat do "App Standby" modu. Treba zistit, ako sa toto da odchytit. Ak bude v tomto mode,
-   scannovat s intervalom raz tak dlhym ako je prednastavene. Ak sa vypne tento mod, spravit one scan.
-4. Od Lollipopa existuje "Power Save" mod. Da sa odchytit boradcast. Mal by fungovat tak ako pri
-   "App standby" mode.
-
 --------
 
-1. scanning - ak bezi, a dam spustit one shot scanning z preferences, neukoncit hned, ale cakat na
-   ukoncenie beziaceho
-3. skus spravit do profilu moznot zastavit aplikaciu
 4. sprav notifikaciu ako dasboard, kde budu ikony profilov, klikom na ikonu sa profil aktivuje.
    poradie bude take iste ako pro aktivatore. Ak sa nezmestia na jednu notifikaciu, spravit dalsiu.
    Notifikacia bude mat prioritu nastavitelnu, default bude Minimal. Uzivatel si bude moct zmenit, aby sa
@@ -73,147 +102,710 @@ DevicePolicyManager.PASSWORD_QUALITY_COMPLEX - heslo?
 
 --------------------------------
 
-1. timezone +02, bolo 20:06 na mobile
-2. nastavil som, ze sa ma spustit o 20:10
-3. zmenil som timezone na +01, cas sa zmenil na 19:06
-4. Editor pise, ze sa nastartuje 21:10 casu mobilu, co je zle!!!
-5. 19:10 sa nenstartoval (20:10 mojho casu), co je spravne
-6. cakam kedy sa naozaj udalost spusti, predpokladam ze o 20:10 casu na mobile
-7. tak 20.10 casu na mobile sa nespustil. Takze asi az 21.10 casu na mobile, tak ako pise v Editore.
+NFC tag senzor - NEFUNGUJE PRI CITANI TAGU NA POZADI!
 
-Cele je to zle. Ako to opravit:
-1. do DabaseHandler.onUpdate() vsetky casy v profiloch a udalostiach prepocitat na lokalny cas. Cize:
-    int gmtOffset = TimeZone.getDefault().getRawOffset();
-    localTimaToDB = timeFromDB - gmtOffset
-2. do db ukladat lokalny cas, ziaden prepocet na UTC nerobit
-3. testnut zmenu timezony, ci sa prejavuje uz v nahodenych alarmoch do AlarmManagera. Podla mna sa musi,
-   ved je blbost znova nahadzovat alarmy, ak sa zmeni timezna.
+Tu mas ako sa to id cita: https://gist.github.com/luixal/5768921.
 
-Po oprave:
-1. timezone +02, bolo 22:22 na mobile
-2. nastavil som, ze sa ma spustit o 22:25
-3. zmenil som timezone na +01, cas sa zmenil na 21:25
-5. Editor pise, ze sa nastartuje 22:25 casu mobilu, co je OK
-6. cakam kedy sa naozaj udalost spusti, predpokladam ze o 22:25 casu na mobile
+- Sprav aby to len citalo UID a to pouzivaj na identifikaciu tagu.
+  Takto precitas UID: https://gist.github.com/luixal/5768921
+- Na nacitanie tagu v NFCTagPreference sa vytvori nova aktivita NFCTagReadEditorActivity.
+  Ta bude normalna ako je teraz NFCTagWritreActivity, ktoru zahodim.
+  Zobrazovat bude precitane UID tagu a aj jeho obsah.
+  Aj citanie by malo zacat automaticky, ked prilozim tag ku mobilu.
+- Pridanie tagu nech hned vyvola citanie UID
+- Write to tag polozku menu tagu zrus a zamen za citanir UID tagu
+- Premenovanie tagu teraz je nahovno, nespravi aj zapis dso tagu, ale po novom to bude OK ako to je.
+- V tabulke TABLE_NFC_TAGS pribudne polozka KEY_NT_UID = "uid". Tam sa zapise precitane uid.
+- Aby bola spatna kompatibilita so starymi tagmi, bude NFCTagReadActivity citat uid aj obsah tagu.
+  Ak bude uid v tabulke KEY_NT_UID prazdne, pouzije sa ako teraz obsah tagu. Inac sa pouzije uid tagu.
+- Pre NFCTagReadActivity zmenit v manifeste intent filter na tento:
+    <intent-filter>
+        <action android:name="android.nfc.action.TAG_DISCOVERED"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
 
----------------------------------
+----------------------
 
-Android O:
-0. Treba cakat na material-dialogs a android-job, kim sa updatnu na podporu Android O. A mozno aj
-   in-app platby treba kuknut.
-1. Pouzivat LayoutParams.TYPE_APPLICATION_OVERLAY - uz mam, len je to zapoznamkovane.
-2. Pouzivat Context.startForegroundService() - uz mam, len je to zapoznamkovane.
-   Tu je problem, ze to pada, akoby nebolo volane Service.startForeground(). Hlavne, ak servis stopnem.
-3. Pouzivat JobIntentService namiesto WakefulIntentService a IntentService - servisy nie je mozne startovat, ak je app. na pozadi,
-   treba to preto robit cez JobIntentService. Problem je ale ten, ze na toto sa potom pouziva JobScheduler,
-   cize servis sa nespusti hned, ale to riadi JobScheduler (plati len pre Android O). :-/
-   Dobre, ale je, ze to spravi wake, takze v podstate ako WakefulIntentService.
-4. Pouzivat NotificationChannels. Pre hlavnu notifikaciu to uz mam, len je to zapoznamkovane. Treba to spravit pre vsetky notifikacie.
+Direct boot:
+- Asi nemozem spravit, nepodporuje to WorkManager. :-(
+- toto je super na to, aby sa PPP startol aj pri uzamknutej obrazovke.
+- android.intent.action.LOCKED_BOOT_COMPLETED vid:
+    https://medium.com/@jordan_shifter/direct-boot-on-android-nougat-71f06c4a7c9e
+- Ak nepuzijes direct boot, tak apka pada napr. v Fabric, android_job.
+  To preto, lebo chcu pouzivat shared preferences a v uzamknutej obrazovke bez direct boot
+  to spadne na IllegalStateException.
 
-----------------------------------
+  Fabric, android-job uz nepouzivam, treba testnut s Firebase Crashlytics a WorkManager
 
-Mam force start pre wifi, bluetooth, phone state, skenery.
-Tie sa volaju z preferences a len na toto su.
-Ked toto zavolam, nesmu sa registrovat na pozadi.
-Totizto ich moze odregistrovat a potom nebude fungovat rescan na dialogoch.
-Pre geofence a orientation skenery to netreba, nemam na to force start.
+- Ako spravit podporu Direct boot:
+    https://developer.android.com/training/articles/direct-boot
+
+- Len mam taky strasne blby pocit, ze neviem ako movnut shared preferences z device do credential storage.
+  Vid:
+    https://developer.android.com/reference/android/content/Context#moveSharedPreferencesFrom(android.content.Context,%20java.lang.String)
+    https://developer.android.com/reference/android/content/Context#moveDatabaseFrom(android.content.Context,%20java.lang.String)
+  Alebo, ze by pomohlo toto?
+    https://stackoverflow.com/questions/51377089/android-crashlytics-fails-on-direct-boot-due-to-disk-encryption
+
+----------------------------------------------
+
+Android Q beta 1 - emulator:
+
+2019-03-15 19:40:37.496 9209-9209/sk.henrichg.phoneprofilesplus W/System.err: java.io.FileNotFoundException: /system/build.prop: open failed: EACCES (Permission denied)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.IoBridge.open(IoBridge.java:496)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at java.io.FileInputStream.<init>(FileInputStream.java:159)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at sk.henrichg.phoneprofilesplus.PPApplication.isMIUI(PPApplication.java:1945)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at sk.henrichg.phoneprofilesplus.PPApplication.<clinit>(PPApplication.java:59)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at java.lang.Class.newInstance(Native Method)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.AppComponentFactory.instantiateApplication(AppComponentFactory.java:62)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.support.v4.app.CoreComponentFactory.instantiateApplication(CoreComponentFactory.java:49)
+2019-03-15 19:40:37.520 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.Instrumentation.newApplication(Instrumentation.java:1144)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.LoadedApk.makeApplication(LoadedApk.java:1211)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread.handleBindApplication(ActivityThread.java:6144)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread.access$1100(ActivityThread.java:208)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1769)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.os.Handler.dispatchMessage(Handler.java:106)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.os.Looper.loop(Looper.java:209)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread.main(ActivityThread.java:7021)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at java.lang.reflect.Method.invoke(Native Method)
+2019-03-15 19:40:37.521 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:486)
+2019-03-15 19:40:37.522 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:872)
+2019-03-15 19:40:37.523 9209-9209/sk.henrichg.phoneprofilesplus W/System.err: Caused by: android.system.ErrnoException: open failed: EACCES (Permission denied)
+2019-03-15 19:40:37.523 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.Linux.open(Native Method)
+2019-03-15 19:40:37.523 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.ForwardingOs.open(ForwardingOs.java:167)
+2019-03-15 19:40:37.523 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.BlockGuardOs.open(BlockGuardOs.java:237)
+2019-03-15 19:40:37.523 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.IoBridge.open(IoBridge.java:482)
+2019-03-15 19:40:37.523 9209-9209/sk.henrichg.phoneprofilesplus W/System.err: 	... 17 more
+2019-03-15 19:40:37.524 9209-9209/sk.henrichg.phoneprofilesplus W/System.err: java.io.FileNotFoundException: /system/build.prop: open failed: EACCES (Permission denied)
+2019-03-15 19:40:37.524 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.IoBridge.open(IoBridge.java:496)
+2019-03-15 19:40:37.524 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at java.io.FileInputStream.<init>(FileInputStream.java:159)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at sk.henrichg.phoneprofilesplus.PPApplication.getEmuiRomName(PPApplication.java:1969)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at sk.henrichg.phoneprofilesplus.PPApplication.isEMUI(PPApplication.java:1990)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at sk.henrichg.phoneprofilesplus.PPApplication.<clinit>(PPApplication.java:60)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at java.lang.Class.newInstance(Native Method)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.AppComponentFactory.instantiateApplication(AppComponentFactory.java:62)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.support.v4.app.CoreComponentFactory.instantiateApplication(CoreComponentFactory.java:49)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.Instrumentation.newApplication(Instrumentation.java:1144)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.LoadedApk.makeApplication(LoadedApk.java:1211)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread.handleBindApplication(ActivityThread.java:6144)
+2019-03-15 19:40:37.525 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread.access$1100(ActivityThread.java:208)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1769)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.os.Handler.dispatchMessage(Handler.java:106)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.os.Looper.loop(Looper.java:209)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at android.app.ActivityThread.main(ActivityThread.java:7021)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at java.lang.reflect.Method.invoke(Native Method)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:486)
+2019-03-15 19:40:37.526 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:872)
+2019-03-15 19:40:37.527 9209-9209/sk.henrichg.phoneprofilesplus W/System.err: Caused by: android.system.ErrnoException: open failed: EACCES (Permission denied)
+2019-03-15 19:40:37.527 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.Linux.open(Native Method)
+2019-03-15 19:40:37.527 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.ForwardingOs.open(ForwardingOs.java:167)
+2019-03-15 19:40:37.527 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.BlockGuardOs.open(BlockGuardOs.java:237)
+2019-03-15 19:40:37.527 9209-9209/sk.henrichg.phoneprofilesplus W/System.err:     at libcore.io.IoBridge.open(IoBridge.java:482)
+2019-03-15 19:40:37.527 9209-9209/sk.henrichg.phoneprofilesplus W/System.err: 	... 18 more
+
+------------------------------------------------------------------------
+
+Permissions vz. Root/G1
+
+checkProfileVibrationOnTouch(context, profile, permissions);
+_vibrationOnTouch
+
+checkProfileVibrateWhenRinging(context, profile, permissions);
+_vibrateWhenRinging (R)
+
+checkProfileRingtones(context, profile, permissions);
+_soundRingtoneChange
+_soundNotificationChange
+_soundAlarmChange
+
+checkProfileScreenTimeout(context, profile, permissions);
+_deviceScreenTimeout
+
+checkProfileScreenBrightness(context, profile, permissions);
+getDeviceBrightnessChange() (R)
+
+checkProfileAutoRotation(context, profile, permissions);
+_deviceAutoRotate
+
+checkProfileNotificationLed(context, profile, permissions);
+_notificationLed (R)
+
+checkProfileWallpaper(context, profile, permissions);
+_deviceWallpaperChange
+
+checkProfileRadioPreferences(context, profile, permissions);
+_deviceWiFiAP (R)
+_deviceBluetooth
+_deviceMobileData (R)
+_deviceNetworkType (R)
+_deviceConnectToSSID
+
+checkProfilePhoneBroadcast(context, profile, permissions);
+_volumeSpeakerPhone
+
+checkCustomProfileIcon(context, profile, permissions);
+getIsIconResourceID()
+
+checkProfileAccessNotificationPolicy(context, profile, permissions);
+_volumeRingerMode
+
+checkProfileLockDevice(context, profile, permissions);
+_lockDevice (R)
+
+checkProfileDtmfToneWhenDialing(context, profile, permissions);
+_dtmfToneWhenDialing
+
+checkProfileSoundOnTouch(context, profile, permissions);
+_soundOnTouch
+
+----------------------------------------
+
+Optimalizacia Editora a priprava na ViewPager:
+
+- Mozes pre Editor pouzit pre profily jeden jediny layout. Lisia sa len indikatorom v headeri.
+  Ten mozes krasne schovavat, ak su vypnute indikatory
+- Potom uz nie je problem vytvorit jeden jediny fragment pre profily a jeden jediny pre udalosti.
+  Netreba pri zmene fiktra vytvarat nanovo cely fragment.
+  Na zmenu filtra len do prislusneho fragmentu posles nove parametre, ktore teraz davas ago argumenty pri vytvarani fragmentu.
+- Ked toto budes mat, nebude sa pri kasdej zmene filtra znova nacitatavat zoznam profilov a udalosti z databazy.
+  Lebo adapter ich filtruje sam, podla nastaveneho filtra v aktivite.
+  Treba akurat vyriesit zmenu poradia profilov a udalosti.
+  Totizto v AsyncTasku ich sortujem.
+- Potom bude omnoho jednoduchsie spravit ten ViewPager pre Editor.
+
+----------------------------------------
+
+- Dostupnost: cize Accessibility service - bud PPP zobrazuje hned v zozname alebo treba kliknut na "Nainstalovane sluzby".
+  Tam treba najst "PhoneProfilesPlusExtender" a povolit ho.
+- System nastavenia polohy: treba povolit pouzivanie polohy.
+- Pristup k upozrneniam: treba najst v zozname "PhoneProfilesPlus" a povolt ho.
+- Optimalizacia baterie: Treba hore prepnut na "Vsetky", najst "PhoneProfilesPlus" a zakazat ho. Aby neoptimalizoval.
+- Setric baterie: toto pozri na Nexuse, mne to preplo na "Rezim vykonu". Tam nic nemenim.
+  Ktohovie, co sa zobrazuje pri inych mobiloch. Testni.
+- Povolenie "Uprava nastaveni systemu": Zobrazi sa priamo pre PPP. Cize netreba dialog.
+- Povolenie "Pristup k nastaveniu Nerusit": Treba najst "PhoneProfilesPlus" a povolit ho.
+- Povolenie "Vykreslit cez dalsie apliakcie": Zobrazi sa priamo pre PPP. Cize netreba dialog.
+- Povolenia pre aplikaciu: ak to je z nastaveni profilu/udalosti, netreba robit nic. Ak je to Nastavenia aplikacie,
+  treba kliknut na "Opravnenia" a tam povolit prislusne opravnenia.
+- Stavovy riadok - Systemove nastavenia: otvori nastavenia kanala "Aktivovany profil". Tu nech si nastavi to, co potrebuje.
+
+Totot vypada, ze je to vsetko, ale odporucam pozriet v kode, co je vsetko volane.
+Pozri kedy je to volane (Android verzia) a hladaj to v nastaveniach systemu.
+
+Hladaj: R.string.setting_screen_not_found_alert
+
+--------------------------------------
+
+!!! Treba testovat, ci je elapsedTime zaporny. Ak je, daj work bez setInitialDelay().
+!!! TimeChangedReceiver - by mali byt spravene cez restartEvents, co je tam uz volany.
+- DonationBroadcastReceiver -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- TwilightScanner -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesTime -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesAlarmClock -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesCalendar -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesCall -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesSMS -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesNFC -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+- EventPreferencesNotification -> raz denne v presny cas, pouziva aj AlarmClock
+HOTOVO
+
+Tieto maju od uzivatela parameter duration, delay:
+- Event.setDelayStartAlarm -> cas od now() + delay, pouziva aj AlarmClock
+HOTOVO
+- Event.setDelayEndAlarm -> cas od now() + delay, pouziva aj AlarmClock
+HOTOVO
+- ProfileDurationAlarmBroadcastReceiver -> cas od now() + delay, pouziva aj AlarmClock
+HOTOVO
+- RunApplicationWithDelayBroadcastReceiver -> cas od now() + delay, pouziva aj AlarmClock
+HOTOVO
+- StartEventNotificationBroadcastReceiver -> cas od now() + delay, pouziva aj AlarmClock
+HOTOVO
+
+Tento sa pouziva na spracovanie udalosti na screen off ale az po jeho loknuti:
+- LockDeviceAfterScreenOffBroadcastReceiver -> cas od now() + delay, pouziva aj AlarmClock,
+uzivatel moze zadat interval, ale len v device Settings.
+HOTOVO
+
+Tento sa pouziva na prepinanie GPS on/off:
+- LocationScannerSwitchGPSBroadcastReceiver -> cas od now() + delay, pouziva aj AlarmClock, uzivatel nemoze
+zadat interval, je natvrdo 1 alebo 30 minut, podla toho, ci sa ma pouizvat GPS. Toto je kandidat na WorkManagera.
+HOTOVO
+
+Tento sa pouziva na zavretie lock device aktivity:
+- LockDeviceActivityFinishBroadcastReceiver -> cas od now() + delay, pouziva aj AlarmClock,
+uzivatel nemoe zadat interval, je natvrdo 20 sekund. Toto ma sledovat, ci uzivatel vypol obrazovku
+a ked nie, ma sa LockDeviceActivity zavriet. Toto je kandidat na WorkManagera.
+HOTOVO
+
+--------------------------------------
+
+https://mail.google.com/mail/u/0/#inbox/FMfcgxwGCGzLSzHXNSXxmMFsKjrPZZMT
+Pozri, cele je to v implementation 'com.google.firebase:firebase-analytics:17.2.1'
+Musia to upgradnut, inac ho budem musiet vyhodit.
+
+--------------------------------------
+
+Extender:
+- Skus spravit tak, ze zavolas Intent na download apk. V URL je cislo verzie, ale typu 5.1.2.1.
+  Cize toto by som musel pouzivat v PPP.
+- Ako stiahnut apk:
+  https://stackoverflow.com/questions/48130430/download-a-file-in-background-without-opening-browser-with-intent
+  https://stackoverflow.com/questions/525204/android-download-intent
+- Testni to a zisti, co sa stane, ked kilknes na tu notifikaciu po stiahnuti.
+- Hlavne pozri na nazov apk po stiahnuti. Ci tam neda cislo, napr. (1), (2) atd.
+- Kliknutie na notifikaciu pos tiahnuti by mala zavolat dalsi Intent na instalaciu apk.
+- Tymto by som mal vyriesenu instalaciu Extendera, ci uz noveho alebo upgrade.
+
+- Vypada to, ze parametrov, ktore pouzivaju Extender je stale viac.
+- Co tak spravit daky dialog, z ktoreho sa bude dat Extender managovat?
+- Aby nemuseli byt pri kazdom profil/event parametri 3 dalsie kvoli Extenderu.
+- Pridaj dakde v Editore daku indikaciu, ze je Extender vyzadovany v novej verzii.
+  Nieco uz o tom mas v Important info, notifikacia o tom sa zobrazi po upgrade PPP.
+
+- Zatial pridaj aspon upozornenie, ze je stary Extender. Mozno to uz mam, kukni.
+  Sprav to ako pri pravach a podobne. Pis aj verziu, ktora je vyzadovana.
+
+Kde je treba Extender:
+
+Profily:
+- Force stop application
+- Lock device
+
+Eventy:
+- Call sensor
+- SMS/MMS sensor
+- Application sensor
+- Orientation sensor
+
+----------------------------------------
+
+RINGERMODE_RING : dnd = ZENMODE_ALL, ringerMode = AudioManager.RINGER_MODE_NORMAL
+RINGERMODE_RING_AND_VIBRATE : dnd = ZENMODE_ALL, ringerMode = AudioManager.RINGER_MODE_NORML
+RINGERMODE_VIBRATE : dnd = ZENMODE_ALL, ringerMode = AudioManager.RINGER_MODE_VIBRATE
+RINGERMODE_SILENT : dnd = ZENMODE_SILENT, ringerMode = AudioManager.RINGER_MODE_SILENT ???
+RINGERMODE_ZENMODE:
+- ZENMODE_ALL : ringerMode = profile._ringerModeForZenMode
+- ZENMODE_PRIORITY : ringerMode = profile._ringerModeForZenMode
+- ZENMODE_NONE : ZENMODE_ALL, ringerMode = -1 + 1000sec + ZENMODE_NONE, ringerMode = profile._ringerModeForZenMode
+- ZENMODE_ALL_AND_VIBRATE : ZENMODE_ALL + ringerMode = AudioManager.RINGER_MODE_VIBRATE
+- ZENMODE_ALL_PRIORITY_VIBRATE : ZENMODE_PRIORITY + ringerMode = AudioManager.RINGER_MODE_VIBRATE
+- ZENMODE_ALARMS : ZENMODE_ALL, ringerMode = -1 + 1000sec + ZENMODE_ALARMS, ringerMode = profile._ringerModeForZenMode ???
+
+---------------------------------------
+
+Default profile sa aktivuje ked:
+- sa ide spravit manualny restart udalosti. skontoluj, ci naozaj len pri nom, ze kedy sa robi full restart
+- nesedi posledne aktivovany profil s tym, co idem aktivovat
+Staci, ked plati jedno z toho
+
+Co sa posledne aktivovalo zapisuje DataWrapper._activateProfile cez Profile.saveProfileToSharedPreferences()
+
+Full restart sa robi, ked senzorType = SENSOR_TYPE_RESTART_EVENTS
+Cize ked je volane DataWrapper._restartEvents() s unblockEventRun = true.
+Cize:
+- ActionForExternalApplicationAcivity s ACTION_RESTART_EVENTS
+- DataWrapper.restartEventWithAlert()
+  - ActivateProfileActivity.onOptionsItemSelected()
+  - BackgroundActivateProfileActivity() - pre STARTUP_SOURCE_WIDGET a STARTUP_SOURCE_SHORTCUT
+  - EditorProfileActivity.onOptionsItemSelected()
+  - RestartEventsFromNotificationActivity - onOptionsItemSelected()
+- PhoneProfilesService.doCommand s EXTRA_RESTART_EVENTS - tu je to ako parameter EXTRA_UNBLOCK_EVENTS_RUN, nie natvrdo
+  - PPApplication.restartEvents() - tu je to ako parameter
+    - PhoneProfilesPrefsActivity.doPreferenceChanged() - !!! TU SA NELOGUJE !!!
+- RestartEventsWithDelayWorker - tu je to ako parameter EXTRA_UNBLOCK_EVENTS_RUN, nie natvrdo
+  - DataWrapper.restartEventsWithDelay() - tu je to ako druhy parameter
+    - Event.doActivateEndProfile() - ak je na koniec udalosti nakonfigurovane EATENDDO_RESTART_EVENTS
+    - ProfileDurationAlarmBroadcastReceiver() - ak je na koniec trvania profilu nakonfigurovane AFTER_DURATION_DO_RESTART_EVENTS
+- TimeChangedReceiver - ak nie je manualne aktivovany profil - tu pozri, kedy toto bolo robene, ale zda sa mi, ze to este na Google Play nie je.
+
+Bez logu o restarte je:
+- PhoneProfilesService.doCommand s EXTRA_RESTART_EVENTS - tu je to ako parameter EXTRA_UNBLOCK_EVENTS_RUN, nie natvrdo
+  - PPApplication.restartEvents() - tu je to ako parameter
+    - PhoneProfilesPrefsActivity.doPreferenceChanged() - !!! TU SA NELOGUJE !!!
+
+------------------------------
+
+Tu je volany ten HandlerThread
+1. PhoneProfilesService.startListeningOrientationSensors()
+2. OrientationScanner.onSensorChanged() - zisti, aky thread to pouziva
+3. DatatWrapper.doHandleEvents()
+
+PhoneProfilesService.startListeningOrientationSensors()
+- PhoneProfilesService.startOrientatonScanner(...)
+  Tu sa aj inicializuje OrientationScanner
+
+OrientationScanner.onSensorChanged()
+- toto je ok, vola to system, nikde inde toto volane byt nemoze a nie je
+
+DatatWrapper.doHandleEvents()
+- EventsHandler.handleEvents()
+
+---
+
+PhoneProfilesService.startOrientatonScanner(...)
+- PhoneProfilesService.registerReceiversAndWorkers()
+- PhoneProfilesService.unregisterReceiversAndWorkers()
+- PhoneProfilesService.reregisterReceiversAndWorkers()
+- PhoneProfilesService.doCommand()
+
+---
+
+EventsHandler.handleEvents()
+- volane strasne vela krat zaujima ma restart udalosti a samotny orientacny senzor
+- SENSOR_TYPE_DEVICE_ORIENTATION
+  - z OrientationScanner.runEventsHandlerForOrientationChange() - zisti, aky thread to pouziva
+  - z PPPExtenderBroadcastRecveiver.onReceive() - je to volane v HandlerThread - vroadcast treba, lebo senzor sleduje aplikacie na popredi
+
+-------------------------------------------------------------
+
+Full restart udalosti:
+- prechadza vsetky udalosti jednu za druhou v opacnom poradi startu
+- pauzuje len to co bezi, lebo nema co ine pauzovat
+- potom prechadza vsetky udalosti jednu za druhou v poradi startu
+- spusta to co spustit ma
+Na TimeChangedReceiver spravi tzv. ciastocny restart, kde nezrusi manualne aktivovany profil, ktory blokuje udalosti.
+To preto, aby sa nezmenil stav. Proste, ked je manualna aktivacia, tak sa udalosti neodblokuju. Teda okrem tych, co
+maju _forceRun = true. Pre ne sa blokovanie ignoruje, spustia sa.
+Kedy sa blokuju udalosti:
+- blokuje sa, ak sa profil aktivuje manualne
+Len restart udalosti vie odblokovat ich beh. Ma na to parameter. Ide ut o ten full restart.
 
 --------------
 
-Senzor polohy:
-- existuje GeofenceScanner a GeofenceScannerJob
-- GeofenceScanner:
-  - v constructore inicializuje google api + inicializuje locationRequest
-    - volany je z PhoneProfilesService.startGeofenceScanner()
-  - ma metodu connect()
-    - ta je volana z PhoneProfilesService.startGeofenceScanner()
-    - vyvolana je metoda onConnected()
-  - ma metodu disconnect()
-    - ta je volana z PhoneProfilesService.start/stopGeofenceScanner()
-    - zavola stopLocationUpdates()
-    - odpoji google api
-  - ma metodu onConnected()
-    - vymaze vsetky transitions z db
-    - zavola updateTransitionsByLastKnownLocation(), nevola sa EventsHandler
-    - nasheduluje GeofenceScannerJob - ZAPOZNAMKOVANE, JOB SA SHEDULUJE SAMOSTATNE
-  - ma metodu onLocationChanged()
-    - updatne lastLocation
-  - ma metodu updateTransitionsByLastKnownLocation()
-    - volana je z onConnected()
-    - volana je z LocationModeChangedBroadcastReceiver.onReceive()
-    - volana je z PhoneProfilesService.scheduleGeofenceScannerJob()
-    - ziska posledne znamu lokaciu
-    - updatne lastLocation
-    - updatne transitions do db (vola updateGeofencesInDB())
-    - moze zavolat EventsHandler
-  - ma metodu startLocationUpdates()
-    - zapina samotne skenovanie polohy - TOTO ZAPINA GPS!!!
-    - volana je z GeofenceScannerJob.onRunJob - TOTO NECHAJME VOLAT LEN ODTIALTO, LEBO LEN V JOBE BUDEME RIESIT PREPINANIE GPS
-    - da GeofenceScanner.mUpdatesStarted = true
-  - ma metodu stopLocationUpdates()
-    - volana je z disconnect()
-    - vypina samotne skenovanie polohy, vypne GPS
-    - da GeofenceScanner.mUpdatesStarted = false
-  - ma metodu updateGeofencesInDB()
-    - volana je z GeofenceScannerJob.onRunJob()
-    - volana je z updateTransitionsByLastKnownLocation()
-    - updatne transition v db pre kazde zaregistrovane geofence
-  - ma metodu clearAllEventGeofences()
-    - volana je z onConnected() - CIZE KAZDY CONNECT/RECONNECT VYMAZE TRANSITIONS Z DB
-    - volana je z LocationModeChangedBroadcastReceiver.onReceive()
-    - keze hned za nou je volane updateTransitionsByLastKnownLocation(), nevadi, ze sa transitions vymazu, znova sa nahodia podla posledne znamej polohy
-    - vymaze transitions v db pre vsetky zaregistrovane geofences
-- GeofenceScannerJob:
-  - onRunJob()
-    - ak nie je GeofenceScanner nastartovany, spravi cancel jobu
-    - ak sa nema v power save mode skenovat poloha, spravi sa cancel jobu
-    - ak GeofenceScanner.mUpdatesStarted == true
-      - zavola sa GeofenceScanner.updateGeofencesInDB()
-      - zavola sa EventsHandler
-    - ak GeofenceScanner.mUpdatesStarted == false
-      - zavola sa GeofenceScanner.startLocationUpdates() - CIZE LEN JOB ZAPINA SKENOVANIE POLOHY
-  - scheduleJob()
-    - volana je z onRunJob()
-    - volana je z PhoneProfilesService.scheduleGeofenceScannerJob()
-    - vola PhoneProfilesService.getGeofencesScanner().mUpdatesStarted = false;
-    - normalne scheduluje job pomocou android-job lib.
-  - cancelJob()
-    - volana je z onRunJob()
-    - volana je z PhoneProfilesService.scheduleGeofenceScannerJob()
-    - normalne canceluje job pomocou android-job lib.
-- PhoneProfilesService:
-  - startGeofenceScanner():
-    - volana je z startGeofenceScanner(...)
-    - reconnectuje GeofenceScanner
-      - vola GeofenceScanner.disconnect()
-      - vola GeofenceScanner.connect()
-  - stopGeofenceScanner()
-    - volana je z startGeofenceScanner(...)
-    - vola GeofenceScanner.disconnect()
-  - startGeofenceScanner(...)
-    - volana je z registerReceiversAndJobs()
-    - volana je z reregisterReceiversAndJobs()
-    - volana je z unregisterReceiversAndJobs()
-    - robi start/stop GeofenceScanner
-    - vie aj restartnut GeofenceScannerJob (rescan = true)
-  - scheduleGeofenceScannerJob()
-    - volana je z DeviceIdleModeBroadcastReceiver.onReceive()
-      - aby sa spravil rescan - tu by som radsej zavolal GeofenceScanner.updateTransitionsByLastKnownLocation(true)
-      - TU TO PREROB AJ PRE OSTATNE SCENERY, VYVOLAJ LEN RESCAN
-    - volana je z GeofenceScanner.onConnected() - ZAPOZNAMKOVANE
-    - volana je z GrantPermissionActivity.finishGrant()
-      - aby sa spustilo GeofenceScanner.startLoacionUpdates() z GeofenceScannerJob.onRunJob()
-    - volana je z PhoneProfilesPreferencesActivity.finish()
-      - aby sa resheduloval job s novym intervalom
-    - volana je z registerReceiversAndJobs()
-    - volana je z reregisterReceiversAndJobs()
-    - volana je z startGeofenceScanner(...)
-    - volana je z unregisterReceiversAndJobs()
-    - robi start/stop GeofenceScannerJob
-  - cancelGeofenceScannerJob()
-    - volane je z scheduleGeofenceScannerJob()
-    - robi cancel GeofenceScannerJob
+Start udalosti:
+1. Start s delay nastavi alarm pre SENSOR_TYPE_EVENT_DELAY_START a NENASTAVI event._status na ESTATUS_RUNNING, necha ho ESTATUS_PAUSE
+2. Po delay znova testuje, ci sa zmeni stav udalosti a tiez ci event._isInDelayStart je uz false. Az tu vola startEvemt(), cize nastavi ESTATUS_RUNNING.
+Vysledok je, ze pocas delay je stale PAUSE az po delay je RUNNING.
 
--------------------
+Koniec udalosti:
+1. Koniec s delay nastavi alarm pre SENSOR_TYPE_EVENT_DELAY_END a NENASTAVI event._status na ESTATUS_PAUSE, necha ho ESTATUS_RUNNING
+2. Po delay znova testuje, ci sa zmeni stav udalosti a tiez ci event._isInDelayEnd je uz false. Az tu vola pauseEvemt(), cize nastavi ESTATUS_PAUSE.
+Vysledok je, ze pocas delay je stale RUNNING az po delay je PAUSE.
+
+-----------------
+
+Aktivacia profilu vyvola onUpdate, je jedno ci je to z 4x1 alebo 4x4 widgetu.
+
+Uz vem preco:
+Problem je vo WorkMangeri. Ten resheduleruje receivre a to sposobi, ze sa zavola onUpdate widgetov.
+Najdolezitejsie je, ze NESMIES equeueovat worky priamo vo widgetoch! Lebo to sposobi nekonecnu slucku!
+Ale ako zabranit zavolaniu onUpdate?
+
+Skus toto (z linku 2): One other thing you could do is to schedule another WorkRequest really far out into the future.
+So, you could create a OneTimeWorkRequest with an initial delay of 10 years.
+
+Linky:
+https://commonsware.com/blog/2018/11/24/workmanager-app-widgets-side-effects.html
+https://issuetracker.google.com/issues/115575872#comment4
+
+----------------------
+
+Battery historian:
+1. sudo apt install docker.io
+2. Ako pouzivat: https://developer.android.com/topic/performance/power/setup-battery-historian
+3. Spustaj ale takto:
+      sudo docker run -p 20000:9999 gcr.io/android-battery-historian/stable:3.0 --port 9999
+4. V Chrome potom: http://localhost:20000
+
+----------
+
+Observer pre kontakty a ake uri pride a ake sa pouziva:
+
+Toto uri pride v S10 zo servisu "Contacts Migrator"
+2020-07-23 18:51:27.043 29373-29480/sk.henrichg.phoneprofilesplus E/[OBSERVER CALL] ContactsContentObserver.onChange: uri=content://com.android.contacts
+Vzdy chodi toto uri, ci kontakt prodas, upravis zmazes. Takze nechaj to ako to mas.
+
+2020-07-23 18:51:27.044 29373-29480/sk.henrichg.phoneprofilesplus E/[OBSERVER CALL] ContactsContentObserver.onChange: ContactsContract.Contacts.CONTENT_URI=content://com.android.contacts/contacts
+2020-07-23 18:51:27.046 29373-29480/sk.henrichg.phoneprofilesplus E/[OBSERVER CALL] ContactsContentObserver.onChange: ContactsContract.CommonDataKinds.Phone.CONTENT_URI=content://com.android.contacts/data/phones
+2020-07-23 18:51:27.049 29373-29480/sk.henrichg.phoneprofilesplus E/[OBSERVER CALL] ContactsContentObserver.onChange: ContactsContract.Groups.CONTENT_SUMMARY_URI=content://com.android.contacts/groups_summary
+2020-07-23 18:51:27.051 29373-29480/sk.henrichg.phoneprofilesplus E/[OBSERVER CALL] ContactsContentObserver.onChange: ContactsContract.Data.CONTENT_URI=content://com.android.contacts/data
+
+Testni, ake uri pride pri zmene kontaktu a skupiny kontaktov:
+
+------------------
+
+Privacy Policy - novy web:
+sites.google.com/site/phoneprofiles
+- https://sites.google.com/site/phoneprofiles/home/privacy-policy
+sites.google.com/site/phoneprofilesplus
+- https://sites.google.com/site/phoneprofilesplus/home/privacy-policy
+
+------------------
+
+Toto daj do Important info. Je to ako nastavit PPP pre znizenie spotreby baterie:
+
+1. Battery optimization, must by dislabled - it is PPP Settings/System/Ignore battery optimization
+2. Scanning intervals, set it >= recommended
+    - Background scanning = 15 minutes
+    - Location scanning = 15 minutes
+    - Wi-Fi scanning = 15 minutes
+    - Bluetooth scanning = 15 minutes
+    - Orientation scanning = 10 seconds
+3. For location scanning disable "Use GPS when not in Power Save mode". This is required only when another location sources are not available.
+    Location sources used by Android:
+    - Wi-Fi
+    - Bluetooth
+    - network
+    - mobile cells
+    - GPS
+4. For increasing location accuracy, you can force usage of Wi-Fi and BLuetooth as source. For this, enable it in Location system setting "Wi-Fi and Bluetooth scanning"
+5. Battery sensor: do not use battery levels when are not needed. Set levels: 0%-100%
+
+---------------------
+
+Orientation sensor:
+Light senzor sa generuje hrozne casto. Na Samsungu donekonecna a par krat za sekundu.
+Spravil som sice:
+- ze sa neregistruje, ak ziadna udalost ho nepouziva
+- ze sa ma handler volat az o polovicu intervalu
+Ale aj tak to musi zrat vela. Kazdych 5 sekund volat eventsHandler je proste vela.
+Zatial mam nenapadlo, co s tym. Do nastaveni senzora daj aspon info preference o tom ze check light zerie bateriu.
+
+-----------------------
+
+Co je toto? Nastavenie tonu pri aktivacii profilu? Prehratie tonu na notifikacu?
+Zistujem, ktory ton je nastaveny (najdi kde), preco by som ho mal aj prehravat? Nemam to nastavene.
+2020-09-07 00:05:35.217 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+2020-09-07 00:05:55.189 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+2020-09-07 00:26:45.609 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+2020-09-07 00:26:46.097 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+2020-09-07 00:26:52.669 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+2020-09-07 00:28:43.189 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+2020-09-07 00:29:03.187 31399-31557/sk.henrichg.phoneprofilesplus I/RingtoneManager: path and URI match to each other
+
+-----------------------
+
+Ak po PPApplication.startTimeOfApplicationStart nebude true PPApplication.applicationFullyStarted,
+teraz zobrazim len dialog a vobec sa neda nic robit.
+
+Po novom:
+- LaucherActivity - nech spustia aktivity. Bude ignorovat, ze nie je nastartovane. Musia sa dat spustit.
+
+- BackgroundActivateProfileActivity - zobrazi len toast. Toto je volane zo shortcutov a widgetov.
+- RestartEventsFromGUI - zobrazi len toast. Toto je volane z notifikacie a widgetov.
+
+- ActivateProfileActivity
+  - Klik na profily - len zobraz toast, ze nie je nastartovane, taky uz mas.
+  - Klik na restart udalosti tiez len toast.
+  - Klik na Editor nech zobrazi Editor.
+
+- PhoneProfilesPrefsActivity
+- EditorProfilesActivity
+  - Nechat zobrazit WorkManagerNotWorkingActivity. Mohol by ten dialog mat tlacitko na restart PPP.
+    Cize stopnut PPService a znova nastartovat ako pri prvom starte.
+
+-------------------------
+
+Skus najprv najst aplikaciu s takym package name. Ak najdes, zisi nazov aplikacie a ten zobrazuj.
+Ak nenajdes aplikaciu, daj natvrdo toto:
+
+com.osp.app.signin - z konta Samsung
+com.google - z konta Google
+vnd.sec.contact.sim - zo sim karty
+vnd.sec.contact.phone - z telefonnej aplikacie ???
+org.thoughtcrime.securesms - Signal
+com.google.android.apps.tachyon - Duo
+com.whatsapp - WhatsApp
+
+Ostatne daj to, co ti vrati databaza. Lebo nevies, co to je.
+
+1. Ist cez RawContacts. Tie usporiadat podla contact_id
+2. Kazda zmena contact_id
+   2.1 vybrat data contact_id z Contacts
+   2.2 ak ma phone number
+       2.2.1 vybrat data z Phone
+       2.2.1 naplnit lokalny _contactList, pouzit account_type z Phone
+   2.3 ak nema phone number
+       2.3.1 naplnit lokalny _contactList, pouzit account_type z RawContacts
+
+----------------------------
+
+Zmena GofenceScanner na pouzitie z Android location API
+1. Vsetko z google play services zamenit na Android location API
+2. Treba 2 managerov:
+   2.1. NETWORK_PROVIDER - na bezne pouzitie skenera
+   2.2. GPS_PROVIDER - na pouzitie, ked chcem GPS lokaciu
+        Tu musim zistit, ci sa GPS p[ouziva trvale, ak to zaskrtnem v Settings skekera
+3. Obaja manageri budu popuizvat jeden, zdielany listener
+
+GPS sa zapnne, na cas vyratany z intervalu skenovania, potom sa na 30 minut vypne. Ked mam nastavene, ze sa ma pouzivat.
+
+// aby som mohol spustit listener v broadcast threade
+public void requestLocationUpdates (String provider,
+                long minTimeMs,
+                float minDistanceM,
+                LocationListener listener,
+                Looper looper)
+
+A je zapnuat GPS, mohla by sa castejsie updatovat poloha. Ten interval mam teraz rovnaky ako pri vypnutej GPS.
+No a pri intervale skeneru 15 minut sa spravia len 3 updaty za 2,6 minuty trvania zapnutej GPS. Malo.
+Ale zasa castejsie to bude volat EventsHandler. Hm.
+
+Prva poloha zjavne pride hned po requeste updatov.
+
+Takze (mozno, porozmyslam):
+1. Ak je zapnute GPS, skrat intervaly updatov.
+2. Cas trvania GPS skrat o polovicu. Nemusi byt tak dlho, ak bude kratky interval.
+
+A co tak EventsHandler volat workom so startIntevalom skenera. A REPLACE, nech sa replacne ak uz existuje vo fronte.
+
+Este jeda vec. Co tak zistovat, ci som pripojeny na sieti. Zda sa mi totiz, ze ak nebudem, tak lokacia nebude
+fungovat. Pozri TwilightScanner. Ten pouizva PASSIVE_PROVIDER. Zisti kedy a ako.
+
+------------------------
+
+am mám funkční nastavení pro Huawei P30 s Androidem 10 a EMUI 10.
+
+nastavení-aplikace- aplikace-PPP-podrobnosti o spotřebě energie-spouštění aplikací:
+Spravovat automaticky - ne
+Spravovat ručně 3x ano
+-automatické souštění
+-sekundární souštění
+-Spustit na ozadí
+třeba se to bude hodit.
+
+--------------------------
+
+Wi-Fi AP na Android 11 - FC:
+2021-02-21 21:42:05.465 32009-32075/sk.henrichg.phoneprofilesplus E/CmdWifiAP.setWifiAP: java.lang.NoSuchMethodError: No interface method startTethering(ILandroid/os/ResultReceiver;ZLjava/lang/String;)V in class Landroid/net/IConnectivityManager; or its super classes (declaration of 'android.net.IConnectivityManager' appears in /system/framework/framework.jar!classes2.dex)
+        at sk.henrichg.phoneprofilesplus.CmdWifiAP.setWifiAP(CmdWifiAP.java:43)
+        at sk.henrichg.phoneprofilesplus.ActivateProfileHelper.doExecuteForRadios(ActivateProfileHelper.java:256)
+        at sk.henrichg.phoneprofilesplus.ActivateProfileHelper.lambda$executeForRadios$0(ActivateProfileHelper.java:636)
+        at sk.henrichg.phoneprofilesplus.-$$Lambda$ActivateProfileHelper$9Dy_bb-t1BpNKFY1TtiZ77s9QH8.run(Unknown Source:4)
+        at android.os.Handler.handleCallback(Handler.java:938)
+        at android.os.Handler.dispatchMessage(Handler.java:99)
+        at android.os.Looper.loop(Looper.java:246)
+        at android.os.HandlerThread.run(HandlerThread.java:67)
+
+--------------------------
+
+PPApplication.STARTUP_SOURCE_SERVICE_MANUAL
+- nastavi sa pri manualnej aktivacii z udalosti
+
+Duration ignorujem:
+- pri nemanualnej aktivacii z udalosti
+- pri boote
+
+Duration neignorujem, ak na koniec duration sa ma aktivovat specificky profil, je jedno odkial je aktivacia volana.
+
+Pri manualnej aktivacii z udalosti nerobim Undo po konci duration, ostatne robim. Proste aktivuje ten isty profil.
+To aby zostal manulane aktivovany profil. Ostatne "after duration" robim.
+
+Cize duration robim pri aktivacii od hociakeho zdroja + pri manualnej aktivacii z udalosti.
+Cize musi byt profil aktivovany manualne.
+
+Nova funkcia predlzovania duration nech ignoruje:
+- manualnu aktivaciu profilu z udalosti, cize PPApplication.STARTUP_SOURCE_SERVICE_MANUAL
+- nemanualnu aktivaciu z udalosti, cize PPApplication.STARTUP_SOURCE_SERVICE
+- boot, cize PPApplication.STARTUP_SOURCE_BOOT
+
+---------------------------------
+
+Set ringtone:
+
+S21:
+Zvonenie:
+- SIM1 = Galaxy/Plaris
+- SIM2 = Galaxy/Atomic Bell
+
+Notifikacie:
+- SIM1 = Upokojujuci/Crystal
+- SIM2 = Galaxy/Transmitter
 
 
+Vid aplikacia SetEdit - System table
+// uri musi byt retazec
+Settings.System.putString(context.getContentResolver(), Settings.System.RINGTONE, uri);
+
+1. S10, S21:
+   Neberie tony z /Ringtones. Zjavne dake pravo chyba, ci co. Nechapem, ze preco,
+   ved v RingtonePreferenceX mi ich RingtoneManager da.
+   Mozno rootom by to zapisal aj externy ton pre SIM 2. Ze by som spravil toto?
+   - ak nie je rootnuty, RingtonePreferenceX ponukne len systemove (internal) tony
+   - ak je rootnuty, tak ponukne vsetky
+
+   Pre notifikacie nie je mozne vobec menit ton pre SIM 2. Cize tuto len root:
+   - E/ActivateProfileHelper.setTones - SIM2: java.lang.IllegalArgumentException: You cannot keep your settings in the secure settings.
+
+2. Huawei:
+   Ma tony zvonenia podobne, len s inymi nazvami.
+   Adresar /Ringtones mi na P40 lite nefungoval, ale /Sounds ano.
+   Na nastavenie netreba root, funguju aj tie zo /Sounds.
+
+   Notifikacie ma podelene na 2 casti:
+   - spravy - tie su dual SIM, pre SIM2 alo pri samusng, treba root
+     E/ActivateProfileHelper.setTones - SIM2: java.lang.IllegalArgumentException: You cannot keep your settings in the secure settings.
+     RingtoneManager neponuka externe tony zo /Sounds pre notifikacie. Neviem preco.
+   - notifikacie - nie su dual sim, zvlastna kategoria, nemam asi jej podporu.
+     Meni sa cez RingtoneManager.setActualDefaultRingtoneUri().
+
+3. Xiaomi:
+   Ma tony zvonenia podobne, len s inymi nazvami. SIM1 nastavuje aj "ringtone".
+   Ak chem samostatny ton pre SIM1 a SIM2, treba nastavit aj "ringtone_sound_use_uniform"="0".
+   Lenze, ten vyzaduje root:
+   E/ActivateProfileHelper.setTones - SIM2: java.lang.IllegalArgumentException: You cannot keep your settings in the secure settings.
+
+   Notifikacie nema dual SIM.
+
+Predpokladam, ze aj tak si to cachuje, takze aj ked nastavim System, nezarucuje to, ze to bude aj pouizvat.
+Toto ale nemam testnute. Nemam tretiu simku :-(.
+!!!! Tak si jednu Primu kup konecne !!!!.
+
+Zvonenia (notifikacie asi podobne, pozriem, testnem):
+
+// pre SIM 1:
+
+- "ringtone" - rington - standarny parameter, myslim, ze funguje vsade
+
+- "notification_sound" - notifikacia - (Samsung)
+- "message" - spravy, ze by SMS? - (Huawei)
+
+- Xiaomi - nema dual sim pre notifikacie, nedavaj do xml
+
+// pre SIM 2:
+- "ringtone_2" - rington - len interne tony, na externe jedine root - (Samsung)
+- "notification_sound_2" - notifikacia - iba root - (Samsung)
+
+- "ringtone2" - rington - (Huawei)
+- "messageSub1" - spravy, ze by SMS? - iba root - (Huawei)
+
+- Xiaomi - nema dual sim pre notifikacie, nedavaj do xml
+
+// Len Huawei:
+- "notification_sound" - notifikacie, okrem SMS? - (Huawei, uz je mimo dual sim podskupinu)
+
+// Xiaomy - podporuje aj content://, takze ok
+- "ringtone" - asi nastavi, ze chcem pouzit ten isty ton aj pre SIM2, pozri
+- "ringtone_sound_slot_1" - nastavil tak aj "ringtone"
+- "ringtone_sound_slot_2"
+
+- "ringtone_sound_use_uniform" - "1" - ten isty ton aj pre SIM2, "0" - samostatny ton pre SIM2
+  vyzaduje root. :-(
+
+
+ringotne pre sim 1 - bez root na vsetchy troch
+ringtone pre sim 2 - bez root na vsetkych troch - Samsung ma vynimku na interne, externe len s root (toto uz mam, len zobraz info o tom)
+
+Xiaomi - ten speci parameter "ringtone_sound_use_uniform" - pridame pod ringtony a povolime len s root
+
+notification sound pre sim 1 -
+notification sound pre sim 2 -
+  - Samsung iba root, tazkze aj pre sim 1 vyzadovat root
+  - Huawei iba root, tazkze aj pre sim 1 vyzadovat root
+  - Xiaomi nema dual sim notifikacie
+
+Takze ring tony bez root
+Notifikacne tony len s root
+
+SIM 1 -> Polaris
+SIM 2 -> Atomic Bell
+
+----------------------------------

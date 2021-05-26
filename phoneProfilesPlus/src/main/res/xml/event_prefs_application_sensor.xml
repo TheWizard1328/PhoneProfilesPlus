@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:key="eventApplicationCategory"
+    app:title="@string/event_preferences_category_eventApplicationsParameters" >
+
+    <SwitchPreferenceCompat
+        app:key="eventApplicationEnabled"
+        app:title="@string/event_preferences_enable_sensor"
+        app:defaultValue="false"
+        app:layout="@layout/mp_preference_material_widget" />
+    <sk.henrichg.phoneprofilesplus.ApplicationsMultiSelectDialogPreferenceX
+        app:defaultValue="@string/dash_string"
+        app:key="eventApplicationApplications"
+        app:title="@string/event_preferences_applications_applications"
+        app:removePPApplications="0"
+        app:systemSettings="accessibility_2.0"
+        app:dependency="eventApplicationEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="eventApplicationInstallExtender"
+        app:title="@string/install_extender_dialog_title"
+        app:summary="@string/event_preferences_applications_PPPExtender_install_summary"
+        app:dependency="eventApplicationEnabled"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="eventApplicationAccessibilitySettings"
+        app:title="@string/event_preferences_applications_AccessibilitySettings_title"
+        app:summary="@string/event_preferences_applications_AccessibilitySettingsForExtender_summary"
+        app:dependency="eventApplicationEnabled"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="eventApplicationLaunchExtender"
+        app:title="@string/event_preferences_applications_LaunchExtender_title"
+        app:dependency="eventApplicationEnabled"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:layout="@layout/mp_preference_material_widget" />
+
+</androidx.preference.PreferenceScreen>

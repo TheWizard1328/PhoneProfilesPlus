@@ -3,7 +3,8 @@ package sk.henrichg.phoneprofilesplus;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class LaunchShortcutActivity extends AppCompatActivity {
 
@@ -22,13 +23,12 @@ public class LaunchShortcutActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         overridePendingTransition(0, 0);
 
+//        PPApplication.logE("[BACKGROUND_ACTIVITY] LaunchShortcutActivity.onCreate", "xxx");
+
         packageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME);
         activityName = getIntent().getStringExtra(EXTRA_ACTIVITY_NAME);
         dialogPreferencePosition = getIntent().getIntExtra(EXTRA_DIALOG_PREFERENCE_POSITION, -1);
         startApplicationDelay = getIntent().getIntExtra(EXTRA_DIALOG_PREFERENCE_START_APPLICATION_DELAY, 0);
-
-        //Log.d("LaunchShortcutActivity.onCreate","dialogPreferencePosition="+dialogPreferencePosition);
-
     }
 
     @Override
@@ -36,25 +36,25 @@ public class LaunchShortcutActivity extends AppCompatActivity {
     {
         super.onStart();
 
-        ComponentName componentName = new ComponentName(packageName, activityName);
-        //if (componentName != null) {
+        try {
+            ComponentName componentName = new ComponentName(packageName, activityName);
             //intent = new Intent(Intent.ACTION_MAIN);
             Intent intent = new Intent(Intent.ACTION_CREATE_SHORTCUT);
             intent.addCategory(Intent.CATEGORY_DEFAULT);
             //intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
             intent.setComponent(componentName);
-            try {
-                startActivityForResult(intent, 100);
-            } catch (Exception e) {
-                finish();
-            }
-        //}
-
+            //noinspection deprecation
+            startActivityForResult(intent, 100);
+        } catch (Exception e) {
+            finish();
+        }
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data)
     {
+        super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == 100) {
             if ((resultCode == RESULT_OK) && (data != null)) {
                 data.putExtra(EXTRA_DIALOG_PREFERENCE_POSITION, dialogPreferencePosition);

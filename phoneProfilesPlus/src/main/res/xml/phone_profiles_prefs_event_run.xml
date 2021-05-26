@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:key="eventRunCategory"
+    app:title="@string/phone_profiles_pref_category_eventRun">
+
+    <SwitchPreferenceCompat
+        app:key="applicationEventUsePriority"
+        app:title="@string/phone_profiles_pref_eventRunUsePriority"
+        app:summary="@string/event_preferences_event_priorityInfo_summary"
+        app:defaultValue="false"
+        app:layout="@layout/mp_preference_material_widget" />
+    <SwitchPreferenceCompat
+        app:key="applicationRestartEventsAlert"
+        app:title="@string/phone_profiles_pref_applicationRestartEventsAlert"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    
+</androidx.preference.PreferenceScreen>

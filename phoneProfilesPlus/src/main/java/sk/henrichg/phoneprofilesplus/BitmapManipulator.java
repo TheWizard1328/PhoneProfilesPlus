@@ -1,8 +1,8 @@
 package sk.henrichg.phoneprofilesplus;
 
+import android.content.ContentResolver;
 import android.content.Context;
-import android.content.res.Resources;
-import android.database.Cursor;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -17,8 +17,9 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.provider.MediaStore;
-import android.util.Log;
+
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.exifinterface.media.ExifInterface;
 
 import java.io.InputStream;
 
@@ -26,8 +27,13 @@ class BitmapManipulator {
 
     static final int ICON_BITMAP_SIZE_MULTIPLIER = 4;
 
-    static Bitmap resampleBitmapUri(String bitmapUri, int width, int height, boolean checkSize, Context context) {
-        //Log.d("---- BitmapManipulator.resampleBitmapUri", "bitmapUri="+bitmapUri);
+    static Bitmap resampleBitmapUri(String bitmapUri, int width, int height, boolean checkSize, boolean checkOrientation, Context context) {
+        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "bitmapUri="+bitmapUri);
+        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "width="+width);
+        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "height="+height);
+        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "checkSize="+checkSize);
+        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "checkOrientation="+checkOrientation);
+
         if (bitmapUri == null)
             return null;
 
@@ -35,35 +41,80 @@ class BitmapManipulator {
             return null;
 
         Uri uri = Uri.parse(bitmapUri);
-        //Log.d("---- BitmapManipulator.resampleBitmapUri", "uri="+uri);
+        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "uri="+uri);
         if (uri != null) {
             try {
-                InputStream inputStream = context.getContentResolver().openInputStream(uri);
+
+                int rotatedWidth = width;
+                int rotatedHeight = height;
+                int orientation = 0;
+
+                if (checkOrientation) {
+                    orientation = getBitmapUriOrientation(context, uri);
+
+                    if (orientation == 90 || orientation == 270) {
+                        //noinspection SuspiciousNameCombination
+                        rotatedWidth = height;
+                        //noinspection SuspiciousNameCombination
+                        rotatedHeight = width;
+                    } /*else {
+                    rotatedWidth = width;
+                    rotatedHeight = height;
+                }*/
+                }
+                //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "orientation="+orientation);
+                //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "rotatedWidth="+rotatedWidth);
+                //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "rotatedHeight="+rotatedHeight);
+
+                ContentResolver contentResolver = context.getContentResolver();
+
+                //boolean ok = false;
+
+                //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                try {
+                    context.grantUriPermission(PPApplication.PACKAGE_NAME, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    //ok = true;
+                } catch (Exception e) {
+                    // java.lang.SecurityException: UID 10157 does not have permission to
+                    // content://com.android.externalstorage.documents/document/93ED-1CEC%3AMirek%2Fmobil%2F.obr%C3%A1zek%2Fblack.jpg
+                    // [user 0]; you could obtain access using ACTION_OPEN_DOCUMENT or related APIs
+                    //Log.e("BitmapManipulator.resampleBitmapUri", Log.getStackTraceString(e));
+                    //PPApplication.recordException(e);
+                    return null;
+                }
+                //if (!ok)
+                //    return null;
+                //}
+
+                //ok = false;
+                InputStream inputStream;
+                try {
+                    // check if bitmap format is supported or if exists
+                    inputStream = context.getContentResolver().openInputStream(uri);
+                    //ok = true;
+                } catch (Exception e) {
+                    return null;
+                }
+                //if (!ok)
+                //    return null;
+
+                // bitmap format is supported and exists
                 final BitmapFactory.Options options = new BitmapFactory.Options();
                 options.inJustDecodeBounds = true;
                 BitmapFactory.decodeStream(inputStream, null, options);
-                //noinspection ConstantConditions
-                inputStream.close();
+
+                if(inputStream != null)
+                    inputStream.close();
 
                 if (checkSize) {
                     // raw height and width of image
                     final int rawHeight = options.outHeight;
                     final int rawWidth = options.outWidth;
-                    if ((rawWidth > ICON_BITMAP_SIZE_MULTIPLIER * width) || (rawHeight > ICON_BITMAP_SIZE_MULTIPLIER * height))
+                    if ((rawWidth > ICON_BITMAP_SIZE_MULTIPLIER * width) || (rawHeight > ICON_BITMAP_SIZE_MULTIPLIER * height)) {
+                        //PPApplication.logE("BitmapManipulator.resampleBitmapUri", "too large");
                         return null;
-                }
-
-                int rotatedWidth, rotatedHeight;
-                int orientation = getBitmapUriOrientation(context, uri);
-
-                if (orientation == 90 || orientation == 270) {
-                    //noinspection SuspiciousNameCombination
-                    rotatedWidth = height;
-                    //noinspection SuspiciousNameCombination
-                    rotatedHeight = width;
-                } else {
-                    rotatedWidth = width;
-                    rotatedHeight = height;
+                    }
                 }
 
                 Bitmap decodedSampleBitmap;
@@ -75,25 +126,29 @@ class BitmapManipulator {
                 options.inJustDecodeBounds = false;
                 decodedSampleBitmap = BitmapFactory.decodeStream(inputStream, null, options);
 
-                //noinspection ConstantConditions
-                inputStream.close();
+                if(inputStream != null)
+                    inputStream.close();
 
-                /*
-                 * if the orientation is not 0 (or -1, which means we don't know), we
-                 * have to do a rotation.
-                 */
-                if (orientation > 0) {
-                    Matrix matrix = new Matrix();
-                    matrix.postRotate(orientation);
+                if (decodedSampleBitmap != null) {
+                    /*
+                     * if the orientation is not 0 (or -1, which means we don't know), we
+                     * have to do a rotation.
+                     */
+                    if (checkOrientation && (orientation > 0)) {
+                        //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "rotated");
 
-                    decodedSampleBitmap = Bitmap.createBitmap(decodedSampleBitmap, 0, 0, decodedSampleBitmap.getWidth(),
-                            decodedSampleBitmap.getHeight(), matrix, true);
+                        Matrix matrix = new Matrix();
+                        matrix.postRotate(orientation);
+
+                        decodedSampleBitmap = Bitmap.createBitmap(decodedSampleBitmap, 0, 0, decodedSampleBitmap.getWidth(),
+                                decodedSampleBitmap.getHeight(), matrix, true);
+                    }
+                    //PPApplication.logE("---- BitmapManipulator.resampleBitmapUri", "decodedSampleBitmap="+decodedSampleBitmap);
                 }
-                //Log.d("---- BitmapManipulator.resampleBitmapUri", "decodedSampleBitmap="+decodedSampleBitmap);
                 return decodedSampleBitmap;
-            } catch (Exception e) {
-                Log.e("BitmapManipulator.resampleBitmapUri", Log.getStackTraceString(e));
-                e.printStackTrace();
+            } catch (Exception ee) {
+                //Log.e("BitmapManipulator.resampleBitmapUri", Log.getStackTraceString(ee));
+                PPApplication.recordException(ee);
                 return null;
             }
         }
@@ -102,24 +157,50 @@ class BitmapManipulator {
     }
 
     private static int getBitmapUriOrientation(Context context, Uri photoUri) {
-        /* it's on the external media. */
-        Cursor cursor = context.getContentResolver().query(photoUri,
-                new String[] { MediaStore.Images.ImageColumns.ORIENTATION }, null, null, null);
-        if (cursor != null) {
-            if (cursor.getCount() != 1) {
-                cursor.close();
-                return -1;
-            }
+        try {
+            //if (Build.VERSION.SDK_INT >= 24) {
+                InputStream inputStream;
+                inputStream = context.getContentResolver().openInputStream(photoUri);
+                if (inputStream != null) {
+                    ExifInterface exif = new ExifInterface(inputStream);
+                    int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                    inputStream.close();
 
-            cursor.moveToFirst();
-
-            int orientation = cursor.getInt(0);
-
-            cursor.close();
-            return orientation;
-        }
-        else
+                    switch (orientation) {
+                        case ExifInterface.ORIENTATION_ROTATE_270:
+                            return 270;
+                        case ExifInterface.ORIENTATION_ROTATE_180:
+                            return  180;
+                        case ExifInterface.ORIENTATION_ROTATE_90:
+                            return  90;
+                        default:
+                            return 0;
+                    }
+                }
+                else
+                    return -1;
+//            }
+//            else {
+//                Cursor cursor = context.getContentResolver().query(photoUri,
+//                        new String[]{MediaStore.Images.ImageColumns.ORIENTATION}, null, null, null);
+//                if (cursor != null) {
+//                    if (cursor.getCount() != 1) {
+//                        cursor.close();
+//                        return -1;
+//                    }
+//
+//                    cursor.moveToFirst();
+//
+//                    int orientation = cursor.getInt(0);
+//
+//                    cursor.close();
+//                    return orientation;
+//                } else
+//                    return -1;
+//            }
+        } catch (Exception e) {
             return -1;
+        }
     }
 
     static boolean checkBitmapSize(String bitmapUri, int width, int height, Context context) {
@@ -130,16 +211,15 @@ class BitmapManipulator {
                 final BitmapFactory.Options options = new BitmapFactory.Options();
                 options.inJustDecodeBounds = true;
                 BitmapFactory.decodeStream(inputStream, null, options);
-                //noinspection ConstantConditions
-                inputStream.close();
+                if(inputStream != null)
+                    inputStream.close();
 
                 // raw height and width of image
                 final int rawHeight = options.outHeight;
                 final int rawWidth = options.outWidth;
                 return (rawWidth <= ICON_BITMAP_SIZE_MULTIPLIER * width) && (rawHeight <= ICON_BITMAP_SIZE_MULTIPLIER * height);
             } catch (Exception e) {
-                Log.e("BitmapManipulator.resampleBitmapUri", Log.getStackTraceString(e));
-                e.printStackTrace();
+                //Log.e("BitmapManipulator.resampleBitmapUri", Log.getStackTraceString(e));
                 return false;
             }
         }
@@ -264,6 +344,7 @@ class BitmapManipulator {
     }
     */
 
+    /*
     static Bitmap resampleResource(Resources resources, int bitmapResource, int width, int height)
     {
         // first decode with inJustDecodeBounds=true to check dimensions
@@ -276,6 +357,7 @@ class BitmapManipulator {
         options.inJustDecodeBounds = false;
         return BitmapFactory.decodeResource(resources, bitmapResource, options);
     }
+    */
 
     static Bitmap recolorBitmap(Bitmap bitmap, int color/*, Context context*/)
     {
@@ -308,26 +390,62 @@ class BitmapManipulator {
         Drawable wrapDrawable = DrawableCompat.wrap(drawable);
         //DrawableCompat.setTintMode(wrapDrawable,  PorterDuff.Mode.DST_ATOP);
         DrawableCompat.setTint(wrapDrawable, color);
+        wrapDrawable.mutate();
         return wrapDrawable;
     }
 
     static Drawable tintDrawableByValue(Drawable drawable, int value) {
         int color  = Color.argb(0xFF, value, value, value);
-        return tintDrawableByColor(drawable, color);
+        Drawable tintedDrawable = tintDrawableByColor(drawable, color);
+        tintedDrawable.mutate();
+        return tintedDrawable;
     }
     */
 
-    static Bitmap getBitmapFromDrawable(Drawable drawable) {
+    static Bitmap getBitmapFromDrawable(Drawable drawable, boolean appIconSize/*, Context context*/) {
         if (drawable instanceof BitmapDrawable) {
+            //PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "is BitmapDrawable");
             return ((BitmapDrawable)drawable).getBitmap();
         }
+        //PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "is NOT BitmapDrawable");
 
-        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
+        try {
+            /*if (PPApplication.logEnabled()) {
+                PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "drawable width=" + drawable.getIntrinsicWidth());
+                PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "drawable height=" + drawable.getIntrinsicHeight());
+            }*/
+            int height;
+            int width;
+            if (appIconSize) {
+                height = GlobalGUIRoutines.dpToPx(GlobalGUIRoutines.ICON_SIZE_DP);
+                width = GlobalGUIRoutines.dpToPx(GlobalGUIRoutines.ICON_SIZE_DP);
+            }
+            else {
+                height = drawable.getIntrinsicHeight();
+                width = drawable.getIntrinsicWidth();
+            }
+            /*if (PPApplication.logEnabled()) {
+                PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "width=" + width);
+                PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "height=" + height);
+                PPApplication.logE("BitmapManipulator.getBitmapFromDrawable", "50dp=" + GlobalGUIRoutines.dpToPx(GlobalGUIRoutines.ICON_SIZE_DP));
+            }*/
+            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+            drawable.draw(canvas);
+            return bitmap;
+        } catch (Exception e) {
+            //Log.e("BitmapManipulator.getBitmapFromDrawable", Log.getStackTraceString(e));
+            PPApplication.recordException(e);
+            return null;
+        }
+    }
 
-        return bitmap;
+    static Bitmap getBitmapFromResource(int drawableRes, boolean appIconSize, Context context) {
+        //Drawable drawable = ContextCompat.getDrawable(context, drawableRes);
+        Drawable drawable = AppCompatResources.getDrawable(context, drawableRes);
+        //PPApplication.logE("BitmapManipulator.getBitmapFromResource", "drawable="+drawable);
+        return getBitmapFromDrawable(drawable, appIconSize/*, context*/);
     }
 
     static Bitmap grayScaleBitmap(Bitmap bitmap)
@@ -345,31 +463,33 @@ class BitmapManipulator {
         paint.setColorFilter(new ColorMatrixColorFilter(colorMatrix));
         Matrix matrix = new Matrix();
         canvas.drawBitmap(bitmap, matrix, paint);
-        //ColorFilter filter = new PorterDuffColorFilter(Color.YELLOW, PorterDuff.Mode.MULTIPLY);
-        //paint.setColorFilter(filter);
-        //canvas.drawBitmap(monochromeBitmap, matrix, paint);
-
-        /*
-        float[] colorTransform = {
-                0, 1f, 0, 0, 0,
-                0, 0, 0f, 0, 0,
-                0, 0, 0, 0f, 0,
-                0, 0, 0, 1f, 0};
-
-        ColorMatrix colorMatrix = new ColorMatrix();
-        colorMatrix.setSaturation(0f); //Remove Colour
-        colorMatrix.set(colorTransform); //Apply the Red
-
-        ColorMatrixColorFilter colorFilter = new ColorMatrixColorFilter(colorMatrix);
-        Paint paint = new Paint();
-        paint.setColorFilter(colorFilter);
-
-        Canvas canvas = new Canvas(monochromeBitmap);
-        Matrix matrix = new Matrix();
-        canvas.drawBitmap(bitmap, matrix, paint);
-        */
 
         return monochromeBitmap;
+    }
+
+    static Bitmap setBitmapBrightness(Bitmap bitmap, float brightness)
+    {
+        if (bitmap == null)
+            return null;
+
+        float[] colorTransform = {
+                1f, 0, 0, 0, brightness,
+                0, 1f, 0, 0, brightness,
+                0, 0, 1f, 0, brightness,
+                0, 0, 0, 1f, 0};
+
+        Bitmap newBitmap = Bitmap.createBitmap(bitmap.getWidth(),
+                bitmap.getHeight(),
+                bitmap.getConfig());
+        Canvas canvas = new Canvas(newBitmap);
+        Paint paint = new Paint();
+        ColorMatrix colorMatrix = new ColorMatrix();
+        colorMatrix.set(colorTransform);
+        paint.setColorFilter(new ColorMatrixColorFilter(colorMatrix));
+        Matrix matrix = new Matrix();
+        canvas.drawBitmap(bitmap, matrix, paint);
+
+        return newBitmap;
     }
 
     private static int calculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight)
@@ -377,7 +497,7 @@ class BitmapManipulator {
         // raw height and width of image
         final int height = options.outHeight;
         final int width = options.outWidth;
-        int inSampleSize = 1;
+        int inSampleSize = 2; // (was 1) maybe fixes java.lang.OutOfMemoryError
 
         if (height > reqHeight || width > reqWidth)
         {
@@ -388,7 +508,9 @@ class BitmapManipulator {
             // choose the smallest ratio as InSampleSize value, this will guarantee
             // a final image with both dimensions larger than or equal to the
             // requested height and width
-            inSampleSize = (heightRatio < widthRatio) ? heightRatio : widthRatio;
+            inSampleSize = Math.min(heightRatio, widthRatio);
+            if (inSampleSize < 2)
+                inSampleSize = 2; // maybe fixes java.lang.OutOfMemoryError
         }
         return inSampleSize;
     }

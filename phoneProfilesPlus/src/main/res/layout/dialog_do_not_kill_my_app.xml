@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/do_not_kill_my_app_dialog_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="false"
+    android:orientation="vertical"
+    android:paddingTop="@dimen/alert_dialog_top_padding" >
+
+    <!--<WebView-->
+        <!--android:id="@+id/do_not_kill_my_app_dialog_webView"-->
+        <!--android:layout_width="match_parent"-->
+        <!--android:layout_height="match_parent"-->
+        <!--android:layout_marginTop="15dp">-->
+    <!--</WebView>-->
+
+    <dev.doubledot.doki.views.DokiContentView
+        android:id="@+id/do_not_kill_my_app_dialog_dokiContentView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="15dp"
+
+        app:dokiPrimaryTextColor="?attr/activityWhiteTextColor"
+        app:dokiSecondaryTextColor="?attr/activitySecondaryTextColor"
+        app:dokiBackgroundColor="?attr/activityBackgroundColor"
+        app:dokiHeaderBackgroundColor="?attr/editorFilterBackgroundColor"
+        app:dokiDividerColor="?attr/dialogDivider"
+        app:dokiActiveIconsColor="?attr/activityWhiteTextColor"
+        app:dokiInactiveIconsColor="?attr/activityDisabledTextColor"
+        app:dokiImgBorderColor="?attr/dialogDivider"
+        />
+
+</LinearLayout>

@@ -2,39 +2,35 @@ package sk.henrichg.phoneprofilesplus;
 
 
 import android.app.Activity;
-import android.os.Build;
-import android.support.v7.widget.SwitchCompat;
-import android.widget.CompoundButton;
+import android.content.Intent;
+import android.widget.TextView;
+
+import androidx.appcompat.widget.SwitchCompat;
 
 class RunStopIndicatorPopupWindow extends GuiInfoPopupWindow {
 
-    RunStopIndicatorPopupWindow(DataWrapper dataWrapper, Activity activity) {
-        super(R.layout.run_stop_indicator_popup_window, activity.getBaseContext());
+    RunStopIndicatorPopupWindow(final DataWrapper dataWrapper, final Activity activity) {
+        super(R.layout.popup_window_run_stop_indicator, R.string.editor_activity_targetHelps_trafficLightIcon_title, activity);
 
-        // Disable default animation for circular reveal
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            setAnimationStyle(0);
-        }
+        // Disable default animation
+        //setAnimationStyle(0);
 
-        final DataWrapper _dataWrapper = dataWrapper;
-        final Activity _activity = activity;
+        final TextView textView = popupView.findViewById(R.id.run_stop_indicator_popup_window_important_info);
+        textView.setClickable(true);
+        textView.setOnClickListener(v -> {
+            Intent intentLaunch = new Intent(activity, ImportantInfoActivity.class);
+            intentLaunch.putExtra(ImportantInfoActivity.EXTRA_SHOW_QUICK_GUIDE, false);
+            intentLaunch.putExtra(ImportantInfoActivity.EXTRA_SCROLL_TO, R.id.activity_info_notification_event_not_started);
+            activity.startActivity(intentLaunch);
 
-        SwitchCompat checkBox = popupView.findViewById(R.id.run_stop_indicator_popup_window_checkbox);
-        checkBox.setChecked(Event.getGlobalEventsRunning(activity.getApplicationContext()));
-        checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
-                if (_dataWrapper != null) {
-                    _dataWrapper.runStopEvents();
-                    if (PhoneProfilesService.instance != null)
-                        PhoneProfilesService.instance.showProfileNotification(_dataWrapper);
-                    if (_activity instanceof EditorProfilesActivity)
-                        ((EditorProfilesActivity) _activity).refreshGUI(false, true);
-                    else if (_activity instanceof ActivateProfileActivity)
-                        ((ActivateProfileActivity) _activity).refreshGUI(false);
-                }
-                ActivateProfileHelper.updateGUI(_activity, false);
-            }
+            dismiss();
+        });
+
+        final SwitchCompat checkBox = popupView.findViewById(R.id.run_stop_indicator_popup_window_checkbox);
+        checkBox.setChecked(Event.getGlobalEventsRunning());
+        checkBox.setOnCheckedChangeListener((compoundButton, isChecked) -> {
+            if (dataWrapper != null)
+                dataWrapper.runStopEventsWithAlert(activity, checkBox, isChecked);
         });
     }
 

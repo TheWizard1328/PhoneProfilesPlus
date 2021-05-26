@@ -1,104 +1,134 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <resources>
-    <declare-styleable name="SeekBarDialogPreference">
+    <!--
+    <declare-styleable name="PPSeekBarDialogPreference">
         <attr name="maximumValue" format="integer" />
         <attr name="minimumValue" format="integer" />
         <attr name="stepSize" format="integer" />
         <attr name="units" format="string" />
     </declare-styleable>
-    <declare-styleable name="VolumeDialogPreference">
+    -->
+    <declare-styleable name="PPVolumeDialogPreference">
         <attr name="volumeType" format="string" />
         <attr name="vNoChange" format="integer" />
-        <attr name="vSharedProfile" format="integer" />
-        <attr name="vDisableSharedProfile" format="integer" />
     </declare-styleable>
-    <declare-styleable name="BrightnessDialogPreference">
+    <declare-styleable name="PPBrightnessDialogPreference">
         <attr name="bNoChange" format="integer" />
         <attr name="bAutomatic" format="integer" />
-        <attr name="bSharedProfile" format="integer" />
-        <attr name="bDisableSharedProfile" format="integer" />
+        <attr name="bChangeLevel" format="integer" />
     </declare-styleable>
-    <declare-styleable name="EventTypePreference">
+    <!--
+    <declare-styleable name="PPEventTypePreference">
     </declare-styleable>
-    <declare-styleable name="ProfilePreference">
+    -->
+    <declare-styleable name="PPProfilePreference">
         <attr name="addNoActivateItem" format="integer" />
         <attr name="noActivateAsDoNotApply" format="integer" />
         <attr name="showDuration" format="integer" />
     </declare-styleable>
-    <declare-styleable name="BetterNumberPickerPreference">
+    <declare-styleable name="PPBetterNumberPickerPreference">
         <attr name="max" format="integer" />
         <attr name="min" format="integer" />
         <attr name="maxExternal" format="string" />
         <attr name="minExternal" format="string" />
     </declare-styleable>
-    <declare-styleable name="DurationDialogPreference">
+    <declare-styleable name="PPDurationDialogPreference">
         <attr name="dMax" format="integer" />
         <attr name="dMin" format="integer" />
     </declare-styleable>
-    <declare-styleable name="LocationGeofencePreference">
+    <declare-styleable name="PPLocationGeofencePreference">
         <attr name="onlyEdit" format="integer" />
     </declare-styleable>
-    <declare-styleable name="ApplicationsMultiSelectDialogPreference">
-        <attr name="addShortcuts" format="integer" />
+    <declare-styleable name="PPApplicationsMultiSelectDialogPreference">
         <attr name="removePPApplications" format="integer" />
         <attr name="systemSettings" format="string" />
     </declare-styleable>
-    <declare-styleable name="InfoDialogPreference">
+    <declare-styleable name="PPInfoDialogPreference">
         <attr name="infoText" format="string" />
     </declare-styleable>
-    <declare-styleable name="ConnectToSSIDDialogPreference">
-        <attr name="ctsdpDisableSharedProfile" format="integer" />
-    </declare-styleable>
-    <declare-styleable name="RingtonePreference">
+    <declare-styleable name="PPRingtonePreference">
         <attr name="ringtoneType" format="string" />
         <attr name="showSilent" format="boolean" />
         <attr name="showDefault" format="boolean" />
+        <attr name="simCard" format="integer" />
     </declare-styleable>
-
+    <!--
     <declare-styleable name="PPScrimInsetsFrameLayout">
         <attr format="reference|color" name="insetForeground" />
+    </declare-styleable>
+    -->
+    <declare-styleable name="PPContactsMultiSelectDialogPreference">
+        <attr name="withoutNumbers" format="boolean" />
+    </declare-styleable>
+    <declare-styleable name="PPGenerateNotificationDialogPreference">
+        <attr name="gnGenerate" format="integer" />
+        <attr name="gnIconType" format="integer" />
+        <attr name="gnNotificationTitle" format="string" />
+        <attr name="gnNotificationBody" format="string" />
     </declare-styleable>
 
     <!-- theme dependent drawables -->
     <attr name="colorAccentDisabled" format="reference" />
-    <attr name="activityTextColor" format="reference" />
+    <attr name="activityBackgroundColor" format="reference" />
+    <attr name="activityWhiteTextColor" format="reference" />
+    <attr name="activityNormalTextColor" format="reference" />
+    <attr name="activitySecondaryTextColor" format="reference" />
+    <attr name="activityDisabledTextColor" format="reference" />
     <attr name="activityCommandBackgroundColor" format="reference" />
     <attr name="actionNewProfileIcon" format="reference" />
     <attr name="actionDeleteAllIcon" format="reference" />
     <attr name="actionEditProfilesIcon" format="reference" />
-    <attr name="activityPopupBackground" format="reference" />
+<!--    <attr name="activityPopupBackground" format="reference" />-->
     <attr name="dragHandleIcon" format="reference" />
     <attr name="actionProfilePrefSave" format="reference" />
-    <attr name="actionProfilePrefCancel" format="reference" />
-    <attr name="actionProfileButtonTextStyle" format="reference" />
-    <attr name="navigationDrawerBackground" format="reference" />
-    <attr name="navigationDrawerText" format="reference"/>
-    <attr name="navigationDrawerSubText" format="reference"/>
-    <attr name="navigationDrawerSelector" format="reference"/>
-    <attr name="filterStatusBarBackground" format="reference" />
-    <attr name="editorDrawerSpinner" format="reference" />
-    <attr name="preferenceDialogBackground" format="reference" />
+<!--    <attr name="actionProfilePrefCancel" format="reference" />-->
+<!--    <attr name="actionProfileButtonTextStyle" format="reference" />-->
+    <!--<attr name="navigationDrawerBackground" format="reference" />-->
+    <!--<attr name="navigationDrawerInsetForeground" format="reference" />-->
+    <!--<attr name="navigationDrawerText" format="reference"/>-->
+    <!--<attr name="navigationDrawerSubText" format="reference"/>-->
+    <!--<attr name="navigationDrawerItemBackgroundColor" format="reference"/>-->
+    <!--<attr name="navigationDrawerItemBackgroundPressedColor" format="reference"/>-->
+    <!--<attr name="navigationDrawerSelector" format="reference"/>-->
+<!--    <attr name="filterStatusBarBackground" format="reference" />-->
+    <!-- <attr name="editorDrawerSpinner" format="reference" /> -->
+<!--    <attr name="preferenceDialogBackground" format="reference" />-->
     <attr name="editItemMenuIcon" format="reference" />
-    <attr name="applicationSettingsLanguageIcon" format="reference" />
     <attr name="actionEventsRestartIcon" format="reference" />
-    <attr name="actionEventsRestartIconInverse" format="reference" />
+    <attr name="importantInfoEventsRestartIcon" format="reference" />
     <attr name="toolbarTheme" format="reference" />
     <attr name="toolbarPopupMenu" format="reference" />
-    <attr name="editorDrawerListHeaderBackground" format="reference" />
+    <!--<attr name="editorDrawerListHeaderBackground" format="reference" />-->
     <attr name="editorDrawerListHeaderTitle" format="reference" />
     <attr name="dialogDivider" format="reference" />
-    <attr name="actionActivityLogIcon" format="reference" />
+    <attr name="actionActivityLogEditorIcon" format="reference" />
     <attr name="actionActivityLogReloadIcon" format="reference" />
-    <attr name="actionSharedProfileIcon" format="reference" />
+    <!--<attr name="actionSharedProfileIcon" format="reference" />-->
     <attr name="actionHelpIcon" format="reference" />
     <attr name="actionActivityLogPlayIcon" format="reference" />
     <attr name="actionActivityLogPauseIcon" format="reference" />
-    <attr name="actionProfileActivtionDuration" format="reference" />
     <attr name="fastScrollTrackPP" format="reference" />
     <attr name="fastScrollThumbPP" format="reference" />
     <attr name="fastScrollPopupBackgroundPP" format="reference" />
     <attr name="fastScrollPopupTextPP" format="reference" />
     <attr name="actionDefaultProfile" format="reference" />
+    <attr name="actionRunStopEventsIcon" format="reference" />
+    <attr name="editorSpinnerDropDownTextColor" format="reference" />
+    <attr name="bottomToolbarTheme" format="reference" />
+    <attr name="editorFilterTitleColor" format="reference" />
+    <attr name="runEventsIndicatorAll" format="reference" />
+    <!--<attr name="editorDrawerFilterHeaderBg" format="reference" />-->
+    <attr name="buttonBackground" format="reference" />
+    <attr name="eventPauseTextColor" format="reference" />
+    <attr name="eventStopStatusIndicator" format="reference" />
+    <attr name="eventStopTextColor" format="reference" />
+    <attr name="eventInDelayTextColor" format="reference" />
+    <attr name="sensorPassStatusPassed" format="reference" />
+    <attr name="sensorPassStatusNotPassed" format="reference" />
+    <attr name="sensorPassStatusWaiting" format="reference" />
+    <attr name="activityLogTypeOther" format="reference" />
+    <attr name="infoPreferenceIcon" format="reference" />
+    <attr name="exclamationPreferenceIcon" format="reference" />
+    <attr name="editorFilterBackgroundColor" format="reference" />
 
 </resources>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:key="profileActivationCategory"
+    app:title="@string/phone_profiles_pref_category_activation">
+
+    <PreferenceCategory
+        app:title="@string/phone_profiles_pref_applicationEventBackgroundProfile"
+        app:layout="@layout/mp_preference_category" >
+
+        <Preference
+            app:key="applicationBackgroundProfileInfo"
+            app:title="@string/phone_profiles_pref_applicationBackgroundProfileInfo_summary"
+            app:layout="@layout/mp_preference_material_widget" />
+        <sk.henrichg.phoneprofilesplus.ProfilePreferenceX
+            app:defaultValue="-999"
+            app:key="applicationBackgroundProfile"
+            app:title="@string/phone_profiles_pref_applicationEventBackgroundProfile"
+            app:layout="@layout/mp_preference_material_widget"
+            app:addNoActivateItem="1" />
+<!--        <SwitchPreferenceCompat-->
+<!--            app:key="applicationBackgroundProfileUsage"-->
+<!--            app:title="@string/phone_profiles_pref_backgroundProfileUsage"-->
+<!--            app:summary="@string/phone_profiles_pref_backgroundProfileUsage_summary"-->
+<!--            app:defaultValue="false"-->
+<!--            app:layout="@layout/mp_preference_material_widget"/>-->
+        <Preference
+            app:key="applicationBackgroundProfileNotificationSoundInfo"
+            app:title="@string/profile_preferences_durationNotificationSound"
+            app:summary="@string/preferences_durationNotificationSoundInfo_summary"
+            app:widgetLayout="@layout/widget_info_preference"
+            app:layout="@layout/mp_preference_material_widget" />
+        <sk.henrichg.phoneprofilesplus.RingtonePreferenceX
+            app:key="applicationBackgroundProfileNotificationSound"
+            app:summary="@string/ringtone_preference_not_set"
+            app:title="@string/profile_preferences_durationNotificationSound"
+            app:ringtoneType="notification"
+            app:layout="@layout/mp_preference_material_widget"
+            app:showSilent="true"
+            app:showDefault="true" />
+        <SwitchPreferenceCompat
+            app:key="applicationBackgroundProfileNotificationVibrate"
+            app:title="@string/profile_preferences_durationNotificationVibrate"
+            app:defaultValue="false"
+            app:layout="@layout/mp_preference_material_widget"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/phone_profiles_pref_manualProfileActivation"
+        app:layout="@layout/mp_preference_category" >
+        <SwitchPreferenceCompat
+            app:key="applicationAlert"
+            app:title="@string/phone_profiles_pref_applicationAlert"
+            app:defaultValue="true"
+            app:layout="@layout/mp_preference_material_widget" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="applicationProfileActivationOtherCategory"
+        app:title="@string/phone_profiles_pref_applicationOtherParametersCategory"
+        app:layout="@layout/mp_preference_category" >
+        <SwitchPreferenceCompat
+            app:key="notificationsToast"
+            app:title="@string/phone_profiles_pref_notificationsToast"
+            app:defaultValue="true"
+            app:layout="@layout/mp_preference_material_widget" />
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

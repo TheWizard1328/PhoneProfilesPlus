@@ -2,38 +2,53 @@
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_important_info_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true" >
+    android:fitsSystemWindows="false" >
 
-    <android.support.v7.widget.Toolbar
+    <androidx.appcompat.widget.Toolbar
         android:id="@+id/activity_important_info_toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="?attr/actionBarSize"
         android:layout_alignParentTop="true"
         android:background="?attr/colorPrimary"
-        android:elevation="3dp"
-        android:minHeight="?attr/actionBarSize"
+        android:elevation="0dp"
         android:theme="?attr/toolbarTheme"
-        app:popupTheme="?attr/toolbarPopupMenu"
-        tools:ignore="UnusedAttribute"/>
+        app:popupTheme="?attr/toolbarPopupMenu"/>
 
-    <android.support.design.widget.TabLayout
+    <com.google.android.material.tabs.TabLayout
         android:id="@+id/activity_important_info_tab_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/activity_important_info_toolbar"
         android:background="?attr/colorPrimary"
-        android:elevation="3dp"
+        android:elevation="0dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="?attr/toolbarTheme"
-        tools:ignore="UnusedAttribute"/>
+        app:tabTextAppearance="@style/ImportantInfoTextAppearanceTab"
+        app:tabMode="scrollable"/>
 
-    <android.support.v4.view.ViewPager
-        android:id="@+id/activity_important_info_pager"
+    <FrameLayout
+        android:id="@+id/activity_important_info_frLa1"
         android:layout_width="match_parent"
-        android:layout_height="fill_parent"
-        android:layout_below="@id/activity_important_info_tab_layout" />
+        android:layout_height="wrap_content"
+        android:layout_below="@id/activity_important_info_tab_layout">
+
+        <!--
+        <View
+            android:id="@+id/activity_important_info_toolbar_shadow"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/toolbar_dropShadow_height"
+            android:background="@color/dialog_divider"
+            android:layout_gravity="top" />
+        -->
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/activity_important_info_pager"
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent" />
+
+    </FrameLayout>
 
 </RelativeLayout>

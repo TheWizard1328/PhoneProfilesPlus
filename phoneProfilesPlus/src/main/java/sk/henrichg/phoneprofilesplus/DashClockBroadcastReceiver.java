@@ -3,32 +3,41 @@ package sk.henrichg.phoneprofilesplus;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Handler;
 
 public class DashClockBroadcastReceiver extends BroadcastReceiver {
 
-    //public static final String INTENT_REFRESH_DASHCLOCK = "sk.henrichg.phoneprofilesplus.REFRESH_DASHCLOCK";
+    //public static final String INTENT_REFRESH_DASHCLOCK = PPApplication.PACKAGE_NAME + ".REFRESH_DASHCLOCK";
+
+    //static final String EXTRA_REFRESH = "refresh";
 
     @Override
-    public void onReceive(Context context, Intent intent) {
-        PPApplication.logE("##### DashClockBroadcastReceiver.onReceive", "xxx");
+    public void onReceive(final Context context, Intent intent) {
+//        PPApplication.logE("[IN_BROADCAST] DashClockBroadcastReceiver.onReceive", "xxx");
 
-        CallsCounter.logCounter(context, "DashClockBroadcastReceiver.onReceive", "DashClockBroadcastReceiver_onReceive");
+        //CallsCounter.logCounter(context, "DashClockBroadcastReceiver.onReceive", "DashClockBroadcastReceiver_onReceive");
 
-        //DashClockJob.start(context.getApplicationContext());
-        //final Context appContext = context.getApplicationContext();
-        PPApplication.startHandlerThread("DashClockBroadcastReceiver.onReceive");
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
+        PhoneProfilesDashClockExtension dashClockExtension = PhoneProfilesDashClockExtension.getInstance();
+        if (dashClockExtension != null) {
+            dashClockExtension.updateExtension();
+        }
+
+        //final boolean refresh = (intent == null) || intent.getBooleanExtra(EXTRA_REFRESH, true);
+
+        /*PPApplication.startHandlerThreadBroadcast();
+        final Handler handler = new Handler(PPApplication.handlerThreadBroadcast.getLooper());
         handler.post(new Runnable() {
             @Override
             public void run() {
+                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DashClockBroadcastReceiver.onReceive");
+
                 PhoneProfilesDashClockExtension dashClockExtension = PhoneProfilesDashClockExtension.getInstance();
                 if (dashClockExtension != null)
                 {
                     dashClockExtension.updateExtension();
                 }
+                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DashClockBroadcastReceiver.onReceive");
             }
-        });
+        });*/
 
     }
 

@@ -8,53 +8,66 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.graphics.Color;
-import android.graphics.Point;
 import android.graphics.PorterDuff;
-import android.graphics.drawable.Drawable;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Handler;
-import android.preference.Preference;
-import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.AppCompatImageButton;
+import android.os.Vibrator;
+import android.provider.Settings;
+import android.text.Editable;
 import android.text.Html;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.BulletSpan;
 import android.text.style.CharacterStyle;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.LeadingMarginSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
 import android.util.TypedValue;
-import android.view.Display;
-import android.view.WindowManager;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.TextView;
 
-import java.lang.reflect.Method;
-import java.text.Collator;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.appcompat.widget.AppCompatImageButton;
+import androidx.core.content.ContextCompat;
+
+import org.xml.sax.XMLReader;
+
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.TimeZone;
+
+import mobi.upod.timedurationpicker.TimeDurationPicker;
+
+import static android.os.Looper.getMainLooper;
 
 class GlobalGUIRoutines {
 
-    static BrightnessView brightnessView = null;
-    static BrightnessView keepScreenOnView = null;
-    static Collator collator = null;
-
     // import/export
     static final String DB_FILEPATH = "/data/" + PPApplication.PACKAGE_NAME + "/databases";
-    static final String REMOTE_EXPORT_PATH = "/PhoneProfiles";
+    //static final String REMOTE_EXPORT_PATH = "/PhoneProfiles";
     static final String EXPORT_APP_PREF_FILENAME = "ApplicationPreferences.backup";
-    static final String EXPORT_DEF_PROFILE_PREF_FILENAME = "DefaultProfilePreferences.backup";
+    //static final String EXPORT_DEF_PROFILE_PREF_FILENAME = "DefaultProfilePreferences.backup";
 
+    static final int ICON_SIZE_DP = 50;
+
+    /*
     // https://stackoverflow.com/questions/40221711/android-context-getresources-updateconfiguration-deprecated
     // but my solution working also in Android 8.1
     public static void setLanguage(Context context)//, boolean restart)
@@ -69,181 +82,232 @@ class GlobalGUIRoutines {
                 String[] langSplit = lang.split("-");
                 if (langSplit.length == 1)
                     appLocale = new Locale(lang);
-                else
-                    appLocale = new Locale(langSplit[0], langSplit[1]);
+                else {
+                    if ((langSplit[0].equals("sr")) && (langSplit[1].equals("Latn")))
+                        appLocale = new Locale.Builder().setLanguage("sr").setScript("Latn").build();
+                    else
+                        appLocale = new Locale(langSplit[0], langSplit[1]);
+                }
             } else {
-                //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
-                //    appLocale = Resources.getSystem().getConfiguration().getLocales().get(0);
-                //else
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                    appLocale = Resources.getSystem().getConfiguration().getLocales().get(0);
+                else
                     appLocale = Resources.getSystem().getConfiguration().locale;
             }
 
             Locale.setDefault(appLocale);
             Configuration appConfig = new Configuration();
-            //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
-            //    appConfig.setLocale(appLocale);
-            //else
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                appConfig.setLocale(appLocale);
+            else
                 appConfig.locale = appLocale;
 
             //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
             //    Context context  = context.createConfigurationContext(appConfig);
             //else
-                context.getResources().updateConfiguration(appConfig, context.getResources().getDisplayMetrics());
+            context.getResources().updateConfiguration(appConfig, context.getResources().getDisplayMetrics());
         //}
 
         // collator for application locale sorting
         collator = getCollator(context);
-    }
 
-    private static Collator getCollator(Context context)
+        PPApplication.createNotificationChannels(context);
+    }
+*/
+
+    public static void setTheme(Activity activity, boolean forPopup, boolean withToolbar/*, boolean withDrawerLayout*/, boolean forActivator)
     {
-        //if (android.os.Build.VERSION.SDK_INT < 24) {
-            // get application Locale
-            String lang = ApplicationPreferences.applicationLanguage(context);
-            Locale appLocale;
-            if (!lang.equals("system")) {
-                String[] langSplit = lang.split("-");
-                if (langSplit.length == 1)
-                    appLocale = new Locale(lang);
-                else
-                    appLocale = new Locale(langSplit[0], langSplit[1]);
-            } else {
-                //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                //    appLocale = Resources.getSystem().getConfiguration().getLocales().get(0);
-                //} else {
-                    appLocale = Resources.getSystem().getConfiguration().locale;
-                //}
-            }
-            // get collator for application locale
-            return Collator.getInstance(appLocale);
-        /*}
-        else {
-            //Log.d("GlobalGUIRoutines.getCollator", java.util.Locale.getDefault().toString());
-            return Collator.getInstance();
-        }*/
+        int theme = getTheme(forPopup, withToolbar, /*withDrawerLayout,*/ forActivator, activity);
+        if (theme != 0)
+            activity.setTheme(theme);
     }
 
-    public static void setTheme(Activity activity, boolean forPopup, boolean withToolbar, boolean withDrawerLayout)
+    static int getTheme(boolean forPopup, boolean withToolbar, /*boolean withDrawerLayout,*/ boolean forActivator, Context context) {
+        switch (ApplicationPreferences.applicationTheme(context, false)) {
+            /*case "color":
+                if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_color;
+                    else
+                        return R.style.PopupTheme_color;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_color;
+                        //else
+                            return R.style.Theme_PhoneProfilesTheme_withToolbar_color;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_color;
+                }*/
+            case "white":
+                //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                /*if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_white;
+                    else
+                        return R.style.PopupTheme_white;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_white;
+                        //else
+                            return R.style.Theme_PhoneProfilesTheme_withToolbar_white;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_white;
+                }*/
+                break;
+            case "dark":
+                //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                /*if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_dark;
+                    else
+                        return R.style.PopupTheme_dark;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_dark;
+                        //else
+                            return R.style.Theme_PhoneProfilesTheme_withToolbar_dark;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_dark;
+                }
+                */
+                break;
+            /*case "dlight":
+                if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_dlight;
+                    else
+                        return R.style.PopupTheme_dlight;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_dlight;
+                        //else
+                            return R.style.Theme_PhoneProfilesTheme_withToolbar_dlight;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_dlight;
+                }*/
+            case "night_mode":
+                //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                /*if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_dayNight;
+                    else
+                        return R.style.PopupTheme_dayNight;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_dark;
+                        //else
+                        return R.style.Theme_PhoneProfilesTheme_withToolbar_dayNight;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_dayNight;
+                }*/
+                break;
+            default:
+                //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                /*if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_white;
+                    else
+                        return R.style.PopupTheme_white;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_white;
+                        //else
+                        return R.style.Theme_PhoneProfilesTheme_withToolbar_white;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_white;
+                }*/
+                /*if (forPopup) {
+                    if (withToolbar)
+                        return R.style.PopupTheme_withToolbar_color;
+                    else
+                        return R.style.PopupTheme_color;
+                } else {
+                    if (withToolbar) {
+                        //if (withDrawerLayout)
+                        //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_color;
+                        //else
+                            return R.style.Theme_PhoneProfilesTheme_withToolbar_color;
+                    } else
+                        return R.style.Theme_PhoneProfilesTheme_color;
+                }*/
+        }
+        if (forActivator) {
+            return R.style.ActivatorTheme_dayNight;
+        }
+        else
+        if (forPopup) {
+            if (withToolbar)
+                return R.style.PopupTheme_withToolbar_dayNight;
+            else
+                return R.style.PopupTheme_dayNight;
+        } else {
+            if (withToolbar) {
+                //if (withDrawerLayout)
+                //    return R.style.Theme_PhoneProfilesTheme_withToolbar_withDrawerLayout_dark;
+                //else
+                return R.style.Theme_PhoneProfilesTheme_withToolbar_dayNight;
+            } else
+                return R.style.Theme_PhoneProfilesTheme_dayNight;
+        }
+    }
+
+    private static void switchNightMode(Context appContext) {
+        switch (ApplicationPreferences.applicationTheme(appContext, false)) {
+            case "white":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                break;
+            case "dark":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                break;
+            case "night_mode":
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                break;
+        }
+    }
+
+    static void switchNightMode(final Context appContext, boolean useMainLooperHandler) {
+        if (useMainLooperHandler) {
+            new Handler(getMainLooper()).post(() -> {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=GlobalGUIRoutines.switchNightMode");
+                try {
+                    switchNightMode(appContext);
+                } catch (Exception e) {
+                    PPApplication.recordException(e);
+                }
+            });
+        }
+        else
+            switchNightMode(appContext);
+    }
+
+    static void reloadActivity(final Activity activity, @SuppressWarnings("SameParameterValue") boolean newIntent)
     {
-        activity.setTheme(getTheme(forPopup, withToolbar, withDrawerLayout, activity));
-    }
+        if (activity == null)
+            return;
 
-    static int getTheme(boolean forPopup, boolean withToolbar, boolean withDrawerLayout, Context context) {
-        if (ApplicationPreferences.applicationTheme(context).equals("material"))
-        {
-            if (forPopup)
-            {
-                if (withToolbar)
-                    return R.style.PopupTheme_withToolbar_material;
-                else
-                    return R.style.PopupTheme_material;
-            }
-            else
-            {
-                if (withToolbar) {
-                    if (withDrawerLayout)
-                        return R.style.Theme_Phoneprofilestheme_withToolbar_withDrawerLayout_material;
-                    else
-                        return R.style.Theme_Phoneprofilestheme_withToolbar_material;
-                }
-                else
-                    return R.style.Theme_Phoneprofilestheme_material;
-            }
-        }
-        else
-        if (ApplicationPreferences.applicationTheme(context).equals("dark"))
-        {
-            if (forPopup)
-            {
-                if (withToolbar)
-                    return R.style.PopupTheme_withToolbar_dark;
-                else
-                    return R.style.PopupTheme_dark;
-            }
-            else
-            {
-                if (withToolbar) {
-                    if (withDrawerLayout)
-                        return R.style.Theme_Phoneprofilestheme_withToolbar_withDrawerLayout_dark;
-                    else
-                        return R.style.Theme_Phoneprofilestheme_withToolbar_dark;
-                }
-                else
-                    return R.style.Theme_Phoneprofilestheme_dark;
-            }
-        }
-        else
-        if (ApplicationPreferences.applicationTheme(context).equals("dlight"))
-        {
-            if (forPopup)
-            {
-                if (withToolbar)
-                    return R.style.PopupTheme_withToolbar_dlight;
-                else
-                    return R.style.PopupTheme_dlight;
-            }
-            else
-            {
-                if (withToolbar) {
-                    if (withDrawerLayout)
-                        return R.style.Theme_Phoneprofilestheme_withToolbar_withDrawerLayout_dlight;
-                    else
-                        return R.style.Theme_Phoneprofilestheme_withToolbar_dlight;
-                }
-                else
-                    return R.style.Theme_Phoneprofilestheme_dlight;
-            }
-        }
-        return 0;
-    }
-
-    /*
-    public static int getDialogTheme(boolean forAlert) {
-        if (PPApplication.applicationTheme.equals("material"))
-        {
-            if (forAlert)
-                return R.style.AlertDialogStyle;
-            else
-                return R.style.DialogStyle;
-        }
-        else
-        if (PPApplication.applicationTheme.equals("dark"))
-        {
-            if (forAlert)
-                return R.style.AlertDialogStyleDark;
-            else
-                return R.style.DialogStyleDark;
-        }
-        else
-        if (PPApplication.applicationTheme.equals("dlight"))
-        {
-            if (forAlert)
-                return R.style.AlertDialogStyle;
-            else
-                return R.style.DialogStyle;
-        }
-        return 0;
-    }
-    */
-
-    static void reloadActivity(Activity activity, boolean newIntent)
-    {
         if (newIntent)
         {
-            final Activity _activity = activity;
-            new Handler(activity.getMainLooper()).post(new Runnable() {
+            new Handler(activity.getMainLooper()).post(() -> {
+                try {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=GlobalGUIRoutines.reloadActivity");
+                    Context context = activity.getApplicationContext();
 
-                @Override
-                public void run() {
-                    try {
-                        Intent intent = _activity.getIntent();
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-                        _activity.finish();
-                        _activity.overridePendingTransition(0, 0);
+                    Intent intent = activity.getIntent();
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
 
-                        _activity.startActivity(intent);
-                        _activity.overridePendingTransition(0, 0);
-                    } catch (Exception ignored) {}
+                    activity.finish();
+                    activity.overridePendingTransition(0, 0);
+
+                    context.startActivity(intent);
+                    //activity.overridePendingTransition(0, 0);
+                } catch (Exception e) {
+                    PPApplication.recordException(e);
                 }
             });
         }
@@ -251,27 +315,51 @@ class GlobalGUIRoutines {
             activity.recreate();
     }
 
-    public static void setPreferenceTitleStyle(Preference preference, boolean bold, boolean underline, boolean errorColor, boolean systemSettings)
+    /*
+    public static void setPreferenceTitleStyle(Preference preference, boolean enabled,
+                                               boolean bold, boolean addBullet,
+                                               boolean underline, boolean errorColor, boolean systemSettings)
     {
         if (preference != null) {
             CharSequence title = preference.getTitle();
             if (systemSettings) {
                 String s = title.toString();
-                if (!s.contains("(S)"))
-                    title = TextUtils.concat("(S) ", title);
+                if (!s.contains("(S)")) {
+                    if (bold && addBullet)
+                        title = TextUtils.concat("• (S) ", title);
+                    else
+                        title = TextUtils.concat("(S) ", title);
+                }
+            }
+            if (addBullet) {
+                if (bold) {
+                    String s = title.toString();
+                    if (!s.startsWith("• "))
+                        title = TextUtils.concat("• ", title);
+                } else {
+                    String s = title.toString();
+                    if (s.startsWith("• "))
+                        title = TextUtils.replace(title, new String[]{"• "}, new CharSequence[]{""});
+                }
             }
             Spannable sbt = new SpannableString(title);
-            Object spansToRemove[] = sbt.getSpans(0, title.length(), Object.class);
+            Object[] spansToRemove = sbt.getSpans(0, title.length(), Object.class);
             for (Object span : spansToRemove) {
                 if (span instanceof CharacterStyle)
                     sbt.removeSpan(span);
             }
             if (bold || underline) {
-                if (bold)
+                if (bold) {
                     sbt.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                if (underline)
-                    sbt.setSpan(new UnderlineSpan(), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                if (errorColor)
+                    sbt.setSpan(new RelativeSizeSpan(1.05f), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                if (underline) {
+                    if (bold && addBullet)
+                        sbt.setSpan(new UnderlineSpan(), 2, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    else
+                        sbt.setSpan(new UnderlineSpan(), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                if (errorColor && enabled)
                     sbt.setSpan(new ForegroundColorSpan(Color.RED), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                 preference.setTitle(sbt);
             } else {
@@ -279,38 +367,76 @@ class GlobalGUIRoutines {
             }
         }
     }
+    */
 
-    /**
-     * Sets the specified image button to the given state, while modifying or
-     * "graying-out" the icon as well
-     *
-     * @param enabled The state of the menu item
-     * @param item The menu item to modify
-     * @param iconResId The icon ID
-     */
-    static void setImageButtonEnabled(boolean enabled, AppCompatImageButton item, int iconResId, Context context) {
-        item.setEnabled(enabled);
-        Drawable originalIcon = ContextCompat.getDrawable(context, iconResId);
-        Drawable icon = enabled ? originalIcon : convertDrawableToGrayScale(originalIcon);
-        item.setImageDrawable(icon);
+    static void setPreferenceTitleStyleX(androidx.preference.Preference preference, boolean enabled,
+                                         boolean bold, //boolean addBullet,
+                                         boolean underline, boolean errorColor, boolean systemSettings)
+    {
+        if (preference != null) {
+            CharSequence title = preference.getTitle();
+            if (systemSettings) {
+                String s = title.toString();
+                if (!s.contains("(S)")) {
+                    if (bold/* && addBullet*/)
+                        title = TextUtils.concat("• (S) ", title);
+                    else
+                        title = TextUtils.concat("(S) ", title);
+                }
+            }
+            //if (addBullet) {
+                String s = title.toString();
+                if (bold) {
+                    if (!s.startsWith("• "))
+                        title = TextUtils.concat("• ", title);
+                } else {
+                    if (s.startsWith("• "))
+                        title = TextUtils.replace(title, new String[]{"• "}, new CharSequence[]{""});
+                }
+            //}
+            Spannable sbt = new SpannableString(title);
+            Object[] spansToRemove = sbt.getSpans(0, title.length(), Object.class);
+            for (Object span : spansToRemove) {
+                if (span instanceof CharacterStyle)
+                    sbt.removeSpan(span);
+            }
+            if (bold || underline) {
+                if (bold) {
+                    sbt.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    //sbt.setSpan(new RelativeSizeSpan(1.05f), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                if (underline) {
+                    if (bold/* && addBullet*/)
+                        sbt.setSpan(new UnderlineSpan(), 2, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    else
+                        sbt.setSpan(new UnderlineSpan(), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                if (errorColor && enabled)
+                    sbt.setSpan(new ForegroundColorSpan(Color.RED), 0, sbt.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+            preference.setTitle(sbt);
+        }
     }
 
-    /**
-     * Mutates and applies a filter that converts the given drawable to a Gray
-     * image. This method may be used to simulate the color of disable icons in
-     * Honeycomb's ActionBar.
-     *
-     * @return a mutated version of the given drawable with a color filter
-     *         applied.
-     */
-    private static Drawable convertDrawableToGrayScale(Drawable drawable) {
+    static void setImageButtonEnabled(boolean enabled, AppCompatImageButton item, /*int iconResId,*/ Context context) {
+        item.setEnabled(enabled);
+        //Drawable originalIcon = ContextCompat.getDrawable(context, iconResId);
+        //Drawable icon = enabled ? originalIcon : convertDrawableToGrayScale(originalIcon);
+        //item.setImageDrawable(icon);
+        if (enabled)
+            item.setColorFilter(null);
+        else
+            item.setColorFilter(context.getColor(R.color.activityDisabledTextColor), PorterDuff.Mode.SRC_IN);
+    }
+
+/*    private static Drawable convertDrawableToGrayScale(Drawable drawable) {
         if (drawable == null) {
             return null;
         }
         Drawable res = drawable.mutate();
         res.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
         return res;
-    }
+    } */
 
     /*
     static float pixelsToSp(Context context, float px) {
@@ -324,11 +450,21 @@ class GlobalGUIRoutines {
     }
     */
 
-    /*static int dpToPx(int dp)
+    @SuppressWarnings("SameParameterValue")
+    static int dpToPx(int dp)
     {
         return (int) (dp * Resources.getSystem().getDisplayMetrics().density);
     }
 
+    private static int dip(int dp) {
+        return (int) (TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, Resources.getSystem().getDisplayMetrics()));
+    }
+
+    private static int sip(int sp) {
+        return (int) (TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, Resources.getSystem().getDisplayMetrics()));
+    }
+
+    /*
     static int pxToDp(int px)
     {
         return (int) (px / Resources.getSystem().getDisplayMetrics().density);
@@ -445,13 +581,62 @@ class GlobalGUIRoutines {
         return timeDate.concat(AmPm);
     }
 
-    public static Spanned fromHtml(String source) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return Html.fromHtml(source, Html.FROM_HTML_MODE_LEGACY);
-        } else {
-            //noinspection deprecation
-            return Html.fromHtml(source);
+    static Spanned fromHtml(String source, boolean forBullets, boolean forNumbers, int numberFrom, int sp) {
+        Spanned htmlSpanned;
+
+        //if (Build.VERSION.SDK_INT >= 24) {
+            if (forNumbers)
+                htmlSpanned = Html.fromHtml(source, Html.FROM_HTML_MODE_COMPACT, null, new LiTagHandler());
+            else {
+                htmlSpanned = Html.fromHtml(source, Html.FROM_HTML_MODE_COMPACT);
+                //htmlSpanned = Html.fromHtml(source, Html.FROM_HTML_MODE_COMPACT, null, new LiTagHandler());
+            }
+        //} else {
+        //    if (forBullets || forNumbers)
+        //        htmlSpanned = Html.fromHtml(source, null, new LiTagHandler());
+        //    else
+        //        htmlSpanned = Html.fromHtml(source);
+        //}
+
+        if (forBullets)
+            return addBullets(htmlSpanned);
+        else
+        if (forNumbers)
+            return addNumbers(htmlSpanned, numberFrom, sp);
+        else
+            return  htmlSpanned;
+
+    }
+
+    private static SpannableStringBuilder addBullets(Spanned htmlSpanned) {
+        SpannableStringBuilder spannableBuilder = new SpannableStringBuilder(htmlSpanned);
+        BulletSpan[] spans = spannableBuilder.getSpans(0, spannableBuilder.length(), BulletSpan.class);
+        if (spans != null) {
+            for (BulletSpan span : spans) {
+                int start = spannableBuilder.getSpanStart(span);
+                int end  = spannableBuilder.getSpanEnd(span);
+                spannableBuilder.removeSpan(span);
+                spannableBuilder.setSpan(new ImprovedBulletSpan(dip(2), dip(8), 0), start, end, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+            }
         }
+        return spannableBuilder;
+    }
+
+    private static SpannableStringBuilder addNumbers(Spanned htmlSpanned, int numberFrom, int sp) {
+        int listItemCount = numberFrom-1;
+        SpannableStringBuilder spannableBuilder = new SpannableStringBuilder(htmlSpanned);
+        BulletSpan[] spans = spannableBuilder.getSpans(0, spannableBuilder.length(), BulletSpan.class);
+        if (spans != null) {
+            for (BulletSpan span : spans) {
+                int start = spannableBuilder.getSpanStart(span);
+                int end  = spannableBuilder.getSpanEnd(span);
+                spannableBuilder.removeSpan(span);
+                ++listItemCount;
+                spannableBuilder.insert(start, listItemCount + ". ");
+                spannableBuilder.setSpan(new LeadingMarginSpan.Standard(0, sip(sp)), start, end, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+            }
+        }
+        return spannableBuilder;
     }
 
     @SuppressLint("DefaultLocale")
@@ -460,6 +645,234 @@ class GlobalGUIRoutines {
         int minutes = (duration % 3600) / 60;
         int seconds = duration % 60;
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    @SuppressLint("DefaultLocale")
+    static String getTimeString(int time) {
+        int hours = time / 60;
+        int minutes = (time % 60);
+        return String.format("%02d:%02d", hours, minutes);
+    }
+
+    static String getListPreferenceString(String value, int arrayValuesRes,
+                                          int arrayStringsRes, Context context) {
+        String[] arrayValues = context.getResources().getStringArray(arrayValuesRes);
+        String[] arrayStrings = context.getResources().getStringArray(arrayStringsRes);
+        int index = 0;
+        for (String arrayValue : arrayValues) {
+            if (arrayValue.equals(value))
+                break;
+            ++index;
+        }
+        try {
+            return arrayStrings[index];
+        } catch (Exception e) {
+            return context.getString(R.string.array_pref_no_change);
+        }
+    }
+
+    static String getZenModePreferenceString(String value, Context context) {
+        String[] arrayValues;
+        String[] arrayStrings;
+
+        Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+        if ((vibrator != null) && vibrator.hasVibrator()) {
+            arrayValues = context.getResources().getStringArray(R.array.zenModeValues);
+            arrayStrings = context.getResources().getStringArray(R.array.zenModeArray);
+        }
+        else {
+            arrayValues = context.getResources().getStringArray(R.array.zenModeNotVibratorValues);
+            arrayStrings = context.getResources().getStringArray(R.array.zenModeNotVibratorArray);
+        }
+
+        String[] arraySummaryStrings = context.getResources().getStringArray(R.array.zenModeSummaryArray);
+        int index = 0;
+        for (String arrayValue : arrayValues) {
+            if (arrayValue.equals(value))
+                break;
+            ++index;
+        }
+        try {
+            return arrayStrings[index] + " - " + arraySummaryStrings[Integer.parseInt(value) - 1];
+        } catch (Exception e) {
+            return context.getString(R.string.array_pref_no_change);
+        }
+    }
+
+    static void setRingtonePreferenceSummary(final String initSummary, final String ringtoneUri,
+                                             final androidx.preference.Preference preference, final Context context) {
+        new AsyncTask<Void, Integer, Void>() {
+
+            private String ringtoneName;
+
+            @Override
+            protected Void doInBackground(Void... params) {
+                if ((ringtoneUri == null) || ringtoneUri.isEmpty())
+                    ringtoneName = context.getString(R.string.ringtone_preference_none);
+                else {
+                    Uri uri = Uri.parse(ringtoneUri);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        ringtoneName = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        ringtoneName = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Void result) {
+                super.onPostExecute(result);
+                String summary = TextUtils.replace(initSummary, new String[]{"<ringtone_name>"}, new String[]{ringtoneName}).toString();
+                preference.setSummary(GlobalGUIRoutines.fromHtml(summary, false, false, 0, 0));
+            }
+
+        }.execute();
+    }
+
+    static void setProfileSoundsPreferenceSummary(final String initSummary,
+                                             final String ringtoneUri, final String notificationUri, final String alarmUri,
+                                             final androidx.preference.Preference preference, final Context context) {
+        new AsyncTask<Void, Integer, Void>() {
+
+            private String ringtoneName;
+            private String notificationName;
+            private String alarmName;
+
+            @Override
+            protected Void doInBackground(Void... params) {
+                if ((ringtoneUri == null) || ringtoneUri.isEmpty())
+                    ringtoneName = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = ringtoneUri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        ringtoneName = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        ringtoneName = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                if ((notificationUri == null) || notificationUri.isEmpty())
+                    notificationName = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = notificationUri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        notificationName = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        notificationName = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                if ((alarmUri == null) || alarmUri.isEmpty())
+                    alarmName = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = alarmUri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        alarmName = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        alarmName = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Void result) {
+                super.onPostExecute(result);
+                String summary = TextUtils.replace(initSummary,
+                        new String[]{"<ringtone_name>", "<notification_name>", "<alarm_name>"},
+                        new String[]{ringtoneName, notificationName, alarmName}).toString();
+                preference.setSummary(GlobalGUIRoutines.fromHtml(summary, false, false, 0, 0));
+            }
+
+        }.execute();
+    }
+
+    static void setProfileSoundsDualSIMPreferenceSummary(final String initSummary,
+                                                  final String ringtoneSIM1Uri, final String ringtoneSIM2Uri, final String notificationSIM1Uri, final String notificationSIM2Uri,
+                                                  final androidx.preference.Preference preference, final Context context) {
+        new AsyncTask<Void, Integer, Void>() {
+
+            private String ringtoneNameSIM1;
+            private String ringtoneNameSIM2;
+            private String notificationNameSIM1;
+            private String notificationNameSIM2;
+
+            @Override
+            protected Void doInBackground(Void... params) {
+                if ((ringtoneSIM1Uri == null) || ringtoneSIM1Uri.isEmpty())
+                    ringtoneNameSIM1 = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = ringtoneSIM1Uri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        ringtoneNameSIM1 = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        ringtoneNameSIM1 = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                if ((ringtoneSIM2Uri == null) || ringtoneSIM2Uri.isEmpty())
+                    ringtoneNameSIM2 = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = ringtoneSIM2Uri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        ringtoneNameSIM2 = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        ringtoneNameSIM2 = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                if ((notificationSIM1Uri == null) || notificationSIM1Uri.isEmpty())
+                    notificationNameSIM1 = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = notificationSIM1Uri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        notificationNameSIM1 = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        notificationNameSIM1 = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                if ((notificationSIM2Uri == null) || notificationSIM2Uri.isEmpty())
+                    notificationNameSIM2 = context.getString(R.string.ringtone_preference_none);
+                else {
+                    String[] splits = notificationSIM2Uri.split("\\|");
+                    Uri uri = Uri.parse(splits[0]);
+                    Ringtone ringtone = RingtoneManager.getRingtone(context, uri);
+                    try {
+                        notificationNameSIM2 = ringtone.getTitle(context);
+                    } catch (Exception e) {
+                        notificationNameSIM2 = context.getString(R.string.ringtone_preference_not_set);
+                    }
+                }
+
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Void result) {
+                super.onPostExecute(result);
+                String summary = TextUtils.replace(initSummary,
+                        new String[]{"<ringtone_name_sim1>", "<ringtone_name_sim2>", "<notification_name_sim1>", "<notification_name_sim2>"},
+                        new String[]{ringtoneNameSIM1, ringtoneNameSIM2, notificationNameSIM1, notificationNameSIM2}).toString();
+                preference.setSummary(GlobalGUIRoutines.fromHtml(summary, false, false, 0, 0));
+            }
+
+        }.execute();
     }
 
     @SuppressLint("DefaultLocale")
@@ -476,6 +889,7 @@ class GlobalGUIRoutines {
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
+    /*
     static Point getNavigationBarSize(Context context) {
         Point appUsableSize = getAppUsableScreenSize(context);
         Point realScreenSize = getRealScreenSize(context);
@@ -497,13 +911,16 @@ class GlobalGUIRoutines {
         else
             return null;
     }
+    */
 
+    /*
     private static Point getAppUsableScreenSize(Context context) {
         WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         if (windowManager != null) {
             Display display = windowManager.getDefaultDisplay();
             Point size = new Point();
             display.getSize(size);
+            PPApplication.logE("GlobalGUIRoutines.getAppUsableScreenSize", "size.y="+size.y);
             return size;
         }
         else
@@ -518,41 +935,193 @@ class GlobalGUIRoutines {
 
             //if (Build.VERSION.SDK_INT >= 17) {
                 display.getRealSize(size);
-            /*} else {
-                try {
-                    size.x = (Integer) Display.class.getMethod("getRawWidth").invoke(display);
-                    size.y = (Integer) Display.class.getMethod("getRawHeight").invoke(display);
-                } catch (Exception ignored) {
-                }
-            }*/
+            //} else {
+            //    try {
+            //        size.x = (Integer) Display.class.getMethod("getRawWidth").invoke(display);
+            //        size.y = (Integer) Display.class.getMethod("getRawHeight").invoke(display);
+            //    } catch (Exception ignored) {
+            //    }
+            //}
 
+            PPApplication.logE("GlobalGUIRoutines.getRealScreenSize", "size.y="+size.y);
             return size;
         }
         else
             return null;
     }
+    static int getStatusBarHeight(Context context) {
+        //int result = 0;
+        //int resourceId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
+        //if (resourceId > 0) {
+        //    result = context.getResources().getDimensionPixelSize(resourceId);
+        //}
+        //return result;
+        final Resources resources = context.getResources();
+        final int resourceId = resources.getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0)
+            return resources.getDimensionPixelSize(resourceId);
+        else
+            return (int) Math.ceil((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? 24 : 25) * resources.getDisplayMetrics().density);
+    }
+    static int getNavigationBarHeight(Context context) {
+        int result = 0;
+        int resourceId = context.getResources().getIdentifier("navigation_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            result = context.getResources().getDimensionPixelSize(resourceId);
+        }
+        return result;
+    }
+    */
 
-    static int getThemeAccentColor (final Context context) {
-        final TypedValue value = new TypedValue ();
-        context.getTheme ().resolveAttribute (R.attr.colorAccent, value, true);
+    static int getThemeAccentColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.colorAccent, value, true);
         return value.data;
     }
 
-    static int getThemeTextColor (final Context context) {
-        final TypedValue value = new TypedValue ();
-        context.getTheme ().resolveAttribute (R.attr.activityTextColor, value, true);
+    static int getThemeWhiteTextColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activityWhiteTextColor, value, true);
+        return value.data;
+    }
+    static int getThemeNormalTextColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activityNormalTextColor, value, true);
         return value.data;
     }
 
-    static int getThemeCommandBackgroundColor (final Context context) {
-        final TypedValue value = new TypedValue ();
-        context.getTheme ().resolveAttribute (R.attr.activityCommandBackgroundColor, value, true);
+    static int getThemeDisabledTextColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activityDisabledTextColor, value, true);
         return value.data;
     }
 
-    static int getThemeColorControlHighlight (final Context context) {
-        final TypedValue value = new TypedValue ();
-        context.getTheme ().resolveAttribute (R.attr.colorControlHighlight, value, true);
+    static int getThemeCommandBackgroundColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activityCommandBackgroundColor, value, true);
+        return value.data;
+    }
+
+    /*
+    static int getThemeColorControlHighlight(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.colorControlHighlight, value, true);
+        return value.data;
+    }
+    */
+
+    /*
+    static int getThemeEventPauseColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.eventPauseTextColor, value, true);
+        return value.data;
+    }
+    */
+
+    static int getThemeEventStopColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.eventStopTextColor, value, true);
+        return value.data;
+    }
+
+    static int getThemeEventStopStatusIndicator(final Context context) {
+        //final TypedValue value = new TypedValue();
+        //context.getTheme().resolveAttribute(R.attr.eventStopStatusIndicator, value, true);
+        //return value.data;
+        int theme = GlobalGUIRoutines.getTheme(false, false, /*false,*/ false, context);
+        if (theme != 0) {
+            TypedArray a = context.getTheme().obtainStyledAttributes(theme, new int[]{R.attr.eventStopStatusIndicator});
+            return a.getResourceId(0, 0);
+        }
+        else
+            return 0;
+    }
+
+    /*
+    static int getThemeEventInDelayColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.eventInDelayTextColor, value, true);
+        return value.data;
+    }
+    */
+
+    static int getThemeSensorPassStatusColor(final int passStatus, final Context context) {
+        final TypedValue value = new TypedValue();
+        if (passStatus == EventPreferences.SENSOR_PASSED_PASSED)
+            context.getTheme().resolveAttribute(R.attr.sensorPassStatusPassed, value, true);
+        else
+        if (passStatus == EventPreferences.SENSOR_PASSED_NOT_PASSED)
+            context.getTheme().resolveAttribute(R.attr.sensorPassStatusNotPassed, value, true);
+        else
+            context.getTheme().resolveAttribute(R.attr.sensorPassStatusWaiting, value, true);
+        return value.data;
+    }
+
+    /*
+    static int getThemeActivatorGridDividerColor(final boolean show, final Context context) {
+        final TypedValue value = new TypedValue();
+        if (show)
+            context.getTheme().resolveAttribute(android.R.attr.listDivider, value, false);
+        else
+            context.getTheme().resolveAttribute(R.attr.activityBackgroundColor, value, false);
+        return value.data;
+    }
+    */
+
+    /*
+    static int getThemeActivityLogTypeOtherColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activityLogTypeOther, value, true);
+        return value.data;
+    }
+    */
+
+    static private int getThemeEditorSpinnerDropDownTextColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.editorSpinnerDropDownTextColor, value, true);
+        return value.data;
+    }
+
+    static int getThemeDialogDividerColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.dialogDivider, value, true);
+        return value.data;
+    }
+
+    /*
+    static private int getThemeEditorFilterBackgroundColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.editorFilterBackgroundColor, value, true);
+        return value.data;
+    }
+    */
+
+    static private int getThemeDialogBackgroundColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activityBackgroundColor, value, true);
+        return value.data;
+    }
+
+    static void setThemeTimeDurationPickerDisplay(TimeDurationPicker timeDurationPicker, final Activity activity) {
+        if (ApplicationPreferences.applicationTheme(activity, true).equals("white")) {
+            timeDurationPicker.setDisplayTextAppearance(R.style.TextAppearance_TimeDurationPicker_Display);
+            timeDurationPicker.setUnitTextAppearance(R.style.TextAppearance_TimeDurationPicker_Unit);
+            timeDurationPicker.setBackspaceIcon(ContextCompat.getDrawable(activity, R.drawable.ic_backspace_light));
+            timeDurationPicker.setClearIcon(ContextCompat.getDrawable(activity, R.drawable.ic_clear_light));
+        }
+        else {
+            timeDurationPicker.setDisplayTextAppearance(R.style.TextAppearance_TimeDurationPicker_Display_Dark);
+            timeDurationPicker.setUnitTextAppearance(R.style.TextAppearance_TimeDurationPicker_Unit_Dark);
+            timeDurationPicker.setBackspaceIcon(ContextCompat.getDrawable(activity, R.drawable.ic_backspace));
+            timeDurationPicker.setClearIcon(ContextCompat.getDrawable(activity, R.drawable.ic_clear));
+        }
+        timeDurationPicker.setDurationDisplayBackgroundColor(getThemeDialogBackgroundColor(activity));
+        timeDurationPicker.setSeparatorColor(GlobalGUIRoutines.getThemeDialogDividerColor(activity));
+    }
+
+    static int getThemeSecondaryTextColor(final Context context) {
+        final TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(R.attr.activitySecondaryTextColor, value, true);
         return value.data;
     }
 
@@ -560,7 +1129,7 @@ class GlobalGUIRoutines {
     static int getResourceId(String pVariableName, String pResourceName, Context context)
     {
         try {
-            return context.getResources().getIdentifier(pVariableName, pResourceName, context.getPackageName());
+            return context.getResources().getIdentifier(pVariableName, pResourceName, context.PPApplication.PACKAGE_NAME);
         } catch (Exception e) {
             return -1;
         }
@@ -586,6 +1155,7 @@ class GlobalGUIRoutines {
         }
     }
 
+    /*
     static void registerOnActivityDestroyListener(@NonNull Preference preference, @NonNull PreferenceManager.OnActivityDestroyListener listener) {
         try {
             PreferenceManager pm = preference.getPreferenceManager();
@@ -611,18 +1181,116 @@ class GlobalGUIRoutines {
         } catch (Exception ignored) {
         }
     }
+    */
 
-    static void lockScreenOrientation(Activity activity) {
-        int currentOrientation = activity.getResources().getConfiguration().orientation;
-        if (currentOrientation == Configuration.ORIENTATION_PORTRAIT) {
-            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-        } else {
-            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    @SuppressLint("SourceLockedOrientationActivity")
+    static void lockScreenOrientation(Activity activity, boolean toDefault) {
+        try {
+            if ((Build.VERSION.SDK_INT != 26) && (!toDefault)) {
+                int currentOrientation = activity.getResources().getConfiguration().orientation;
+                if (currentOrientation == Configuration.ORIENTATION_PORTRAIT) {
+                    activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
+                } else {
+                    activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                }
+            }
+            else
+                // this set device to default orientation (for mobile to portrait, for 10' tablets to landscape)
+                activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
+        } catch (Exception e) {
+            // FC in API 26 (A8) - Google bug: java.lang.IllegalStateException: Only fullscreen activities can request orientation
+            PPApplication.recordException(e);
         }
     }
 
     static void unlockScreenOrientation(Activity activity) {
-        activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+        try {
+            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+        } catch (Exception e) {
+            // FC in API 26 (A8) - Google bug: java.lang.IllegalStateException: Only fullscreen activities can request orientation
+            PPApplication.recordException(e);
+        }
+    }
+
+    static class LiTagHandler implements Html.TagHandler {
+
+        @Override
+        public void handleTag(boolean opening, String tag, Editable output, XMLReader xmlReader) {
+
+            class Bullet {}
+
+            if (tag.equals("li") && opening) {
+                output.setSpan(new Bullet(), output.length(), output.length(), Spannable.SPAN_INCLUSIVE_EXCLUSIVE);
+            }
+            if (tag.equals("li") && !opening) {
+                //output.append("\n\n");
+                output.append("\n");
+                Bullet[] spans = output.getSpans(0, output.length(), Bullet.class);
+                if (spans != null) {
+                    Bullet lastMark = spans[spans.length-1];
+                    int start = output.getSpanStart(lastMark);
+                    output.removeSpan(lastMark);
+                    if (start != output.length()) {
+                        output.setSpan(new BulletSpan(), start, output.length(), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+                    }
+                }
+            }
+        }
+
+    }
+
+    static class HighlightedSpinnerAdapter extends ArrayAdapter<String> {
+
+        private int mSelectedIndex = -1;
+        private final Activity activity;
+
+        @SuppressWarnings("SameParameterValue")
+        HighlightedSpinnerAdapter(Activity activity, int textViewResourceId, String[] objects) {
+            super(activity, textViewResourceId, objects);
+            this.activity = activity;
+        }
+
+        @Override
+        public View getDropDownView(int position, View convertView, @NonNull ViewGroup parent){
+            View itemView =  super.getDropDownView(position, convertView, parent);
+
+            TextView itemText = itemView.findViewById(android.R.id.text1);
+            if (itemText != null) {
+                if (position == mSelectedIndex) {
+                    itemText.setTextColor(GlobalGUIRoutines.getThemeAccentColor(activity));
+                } else {
+                    itemText.setTextColor(GlobalGUIRoutines.getThemeEditorSpinnerDropDownTextColor(activity));
+                }
+            }
+
+            return itemView;
+        }
+
+        void setSelection(int position) {
+            mSelectedIndex =  position;
+            notifyDataSetChanged();
+        }
+
+    }
+
+    static boolean areSystemAnimationsEnabled(Context context) {
+        float duration, transition;
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            duration = Settings.Global.getFloat(
+                    context.getContentResolver(),
+                    Settings.Global.ANIMATOR_DURATION_SCALE, 1);
+            transition = Settings.Global.getFloat(
+                    context.getContentResolver(),
+                    Settings.Global.TRANSITION_ANIMATION_SCALE, 1);
+        /*} else {
+            duration = Settings.System.getFloat(
+                    context.getContentResolver(),
+                    Settings.System.ANIMATOR_DURATION_SCALE, 1);
+            transition = Settings.System.getFloat(
+                    context.getContentResolver(),
+                    Settings.System.TRANSITION_ANIMATION_SCALE, 1);
+        }*/
+        return (duration != 0 && transition != 0);
     }
 
 }

@@ -6,7 +6,9 @@
     android:minHeight="40dp"
     android:minResizeWidth="40dp"
     android:minResizeHeight="40dp"
-    android:initialLayout="@layout/icon_widget"
+    android:initialLayout="@layout/empty_widget"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="1800000">
+    android:updatePeriodMillis="0"
+    android:previewImage="@drawable/icon_widget_preview"
+    android:widgetCategory="home_screen">
 </appwidget-provider>

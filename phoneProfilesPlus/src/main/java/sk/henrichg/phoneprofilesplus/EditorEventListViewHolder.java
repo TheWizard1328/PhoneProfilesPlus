@@ -2,14 +2,18 @@ package sk.henrichg.phoneprofilesplus;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.Point;
 import android.graphics.Typeface;
-import android.support.v7.widget.RecyclerView;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.RelativeSizeSpan;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.labo.kaji.relativepopupwindow.RelativePopupWindow;
+import androidx.appcompat.widget.AppCompatImageButton;
+import androidx.appcompat.widget.TooltipCompat;
+import androidx.recyclerview.widget.RecyclerView;
 
 class EditorEventListViewHolder extends RecyclerView.ViewHolder
                                     implements View.OnClickListener
@@ -27,7 +31,8 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
     private final ImageView profileEndIcon;
     private final TextView profileEndName;
     private ImageView profileEndIndicator;
-    private final ImageView eventItemEditMenu;
+    private final AppCompatImageButton eventItemEditMenu;
+    private final AppCompatImageButton ignoreManualActivationButton;
 
     private Event event;
     private final EditorEventListFragment editorFragment;
@@ -47,7 +52,6 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
         else
             dragHandle = null;
 
-        //listItemRoot = vi.findViewById(R.id.event_list_item_root);
         eventName = itemView.findViewById(R.id.event_list_item_event_name);
         eventStatus = itemView.findViewById(R.id.event_list_item_status);
         eventItemEditMenu = itemView.findViewById(R.id.event_list_item_edit_menu);
@@ -55,7 +59,8 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
         profileStartIcon = itemView.findViewById(R.id.event_list_item_profile_start_icon);
         profileEndName = itemView.findViewById(R.id.event_list_item_profile_end_name);
         profileEndIcon = itemView.findViewById(R.id.event_list_item_profile_end_icon);
-        if (ApplicationPreferences.applicationEditorPrefIndicator(context))
+        ignoreManualActivationButton = itemView.findViewById(R.id.event_list_item_ignore_manual_activation);
+        if (ApplicationPreferences.applicationEditorPrefIndicator)
         {
             eventPreferencesDescription  = itemView.findViewById(R.id.event_list_item_preferences_description);
             //eventPreferencesDescription.setHorizontallyScrolling(true); // disable auto word wrap :-)
@@ -72,91 +77,190 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
 
         if (event != null)
         {
-            int _eventStatus = event.getStatusFromDB(editorFragment.activityDataWrapper);
+            int _eventStatus = event.getStatusFromDB(context);
 
-            boolean isRunnable = event.isRunnable(context);
-            int statusRes = R.drawable.ic_event_status_stop_not_runnable;
-            switch (_eventStatus)
-            {
-                case Event.ESTATUS_RUNNING:
-                    if (event._isInDelayEnd)
-                        statusRes = R.drawable.ic_event_status_running_delay;
-                    else
-                        statusRes = R.drawable.ic_event_status_running;
-                    break;
-                case Event.ESTATUS_PAUSE:
-                    if (event._isInDelayStart)
-                        statusRes = R.drawable.ic_event_status_pause_delay;
-                    else
-                        statusRes = R.drawable.ic_event_status_pause;
-                    break;
-                case Event.ESTATUS_STOP:
-                    if (isRunnable)
-                        statusRes = R.drawable.ic_event_status_stop;
-                    else
-                        statusRes = R.drawable.ic_event_status_stop_not_runnable;
-                    break;
+            //boolean isRunnable = event.isRunnable(context, true);
+            //boolean isPermissionGranted = Permissions.checkEventPermissions(context, event).size() == 0;
+            //boolean isAccessibilityServiceEnabled = (event.isAccessibilityServiceEnabled(context, true) == 1);
+
+            //DataWrapper dataWrapper = new DataWrapper(context, false, 0, false);
+            boolean manualProfileActivation = DataWrapper.getIsManualProfileActivation(false, context.getApplicationContext());
+            //dataWrapper.invalidateDataWrapper();
+
+            int statusRes = GlobalGUIRoutines.getThemeEventStopStatusIndicator(context);
+            /*if (!Event.getGlobalEventsRunning()) {
+                if (_eventStatus != Event.ESTATUS_STOP)
+                    statusRes = R.drawable.ic_event_status_pause_manual_activation;
+            }*/
+            if (Event.getGlobalEventsRunning()) {
+            //else {
+                switch (_eventStatus) {
+                    case Event.ESTATUS_RUNNING:
+                        if (event._isInDelayEnd)
+                            statusRes = R.drawable.ic_event_status_running_delay;
+                        else
+                            statusRes = R.drawable.ic_event_status_running;
+                        break;
+                    case Event.ESTATUS_PAUSE:
+                        if (/*!Event.getGlobalEventsRunning() ||*/ (manualProfileActivation && !event._ignoreManualActivation))
+                            statusRes = R.drawable.ic_event_status_pause_manual_activation;
+                        else if (event._isInDelayStart)
+                            statusRes = R.drawable.ic_event_status_pause_delay;
+                        else
+                            statusRes = R.drawable.ic_event_status_pause;
+                        break;
+                    case Event.ESTATUS_STOP:
+                        //if (isRunnable)
+                        statusRes = GlobalGUIRoutines.getThemeEventStopStatusIndicator(context);
+                        //else
+                        //    statusRes = R.drawable.ic_event_status_stop_not_runnable;
+                        break;
+                }
             }
             eventStatus.setImageResource(statusRes);
 
-            if (_eventStatus == Event.ESTATUS_RUNNING) {
-                eventName.setTypeface(null, Typeface.BOLD);
-                eventName.setTextSize(16);
-                eventName.setTextColor(GlobalGUIRoutines.getThemeAccentColor(editorFragment.getActivity()));
-            }
-            else
-            if (!isRunnable) {
-                eventName.setTypeface(null, Typeface.NORMAL);
-                eventName.setTextSize(15);
+
+            //TypedArray themeArray = context.getTheme().obtainStyledAttributes(new int[]{android.R.attr.textColorSecondary});
+            //ColorStateList textColorSecondary = themeArray.getColorStateList(0);
+
+            if (EventsPrefsFragment.isRedTextNotificationRequired(event, context)) {
+//                if (event._name.equals("Nočný hovor"))
+//                    Log.e("------ EditorEventListViewHolder.bindEvent", "--- RED TEXT ---");
+                //if (!isRunnable)
+                eventName.setTypeface(null, Typeface.BOLD_ITALIC/*ITALIC*/);
+                //else
+                //    eventName.setTypeface(null, Typeface.NORMAL);
+                //eventName.setTextSize(15);
                 eventName.setTextColor(Color.RED);
             }
+            else
+            if (!Event.getGlobalEventsRunning()/* || (manualProfileActivation && !event._ignoreManualActivation)*/) {
+//                if (event._name.equals("Nočný hovor"))
+//                    Log.e("------ EditorEventListViewHolder.bindEvent", "--- GLOBAL EVENTS RUN ---");
+                eventName.setTypeface(null, Typeface.BOLD_ITALIC/*ITALIC*/);
+                //eventName.setTextSize(15);
+                //noinspection ConstantConditions
+                eventName.setTextColor(GlobalGUIRoutines.getThemeNormalTextColor(editorFragment.getActivity()));
+                //eventName.setTextColor(textColorSecondary);
+            }
+            else
+            if (_eventStatus == Event.ESTATUS_STOP) {
+//                if (event._name.equals("Nočný hovor"))
+//                    Log.e("------ EditorEventListViewHolder.bindEvent", "--- STOPPED ---");
+                eventName.setTypeface(null, Typeface.BOLD_ITALIC/*ITALIC*/);
+                //eventName.setTextSize(15);
+                //noinspection ConstantConditions
+                eventName.setTextColor(GlobalGUIRoutines.getThemeEventStopColor(editorFragment.getActivity()));
+            }
+            else
+            if (_eventStatus == Event.ESTATUS_PAUSE) {
+//                if (event._name.equals("Nočný hovor"))
+//                    Log.e("------ EditorEventListViewHolder.bindEvent", "--- PAUSED ---");
+                eventName.setTypeface(null, Typeface.BOLD/*NORMAL*/);
+                //eventName.setTextSize(15);
+                //if (event._isInDelayEnd)
+                //    eventName.setTextColor(GlobalGUIRoutines.getThemeEventInDelayColor(editorFragment.getActivity()));
+                //else
+                //    eventName.setTextColor(GlobalGUIRoutines.getThemeEventPauseColor(editorFragment.getActivity()));
+                //noinspection ConstantConditions
+                eventName.setTextColor(GlobalGUIRoutines.getThemeNormalTextColor(editorFragment.getActivity()));
+                //eventName.setTextColor(textColorSecondary);
+            }
+            else
+            if (_eventStatus == Event.ESTATUS_RUNNING) {
+//                if (event._name.equals("Nočný hovor"))
+//                    Log.e("------ EditorEventListViewHolder.bindEvent", "--- RUNNING ---");
+                eventName.setTypeface(null, Typeface.BOLD);
+                //eventName.setTextSize(15);
+                //if (event._isInDelayEnd)
+                //    eventName.setTextColor(GlobalGUIRoutines.getThemeEventInDelayColor(editorFragment.getActivity()));
+                //else
+                //noinspection ConstantConditions
+                eventName.setTextColor(GlobalGUIRoutines.getThemeAccentColor(editorFragment.getActivity()));
+            }
             else {
-                eventName.setTypeface(null, Typeface.NORMAL);
-                eventName.setTextSize(15);
-                eventName.setTextColor(GlobalGUIRoutines.getThemeTextColor(editorFragment.getActivity()));
+//                if (event._name.equals("Nočný hovor"))
+//                    Log.e("------ EditorEventListViewHolder.bindEvent", "--- OTHERS ---");
+                eventName.setTypeface(null, Typeface.BOLD/*NORMAL*/);
+                //eventName.setTextSize(15);
+                //noinspection ConstantConditions
+                eventName.setTextColor(GlobalGUIRoutines.getThemeNormalTextColor(editorFragment.getActivity()));
+                //eventName.setTextColor(textColorSecondary);
             }
 
-            String _eventName = event._name;
+            boolean applicationEditorPrefIndicator = ApplicationPreferences.applicationEditorPrefIndicator;
+
+            String _eventName;
             String eventStartOrder = "[O:" + event._startOrder + "] ";
             if (filterType == EditorEventListFragment.FILTER_TYPE_START_ORDER)
                 eventStartOrder = "";
             String eventPriority = "";
-            if (ApplicationPreferences.applicationEventUsePriority(context))
+            if (ApplicationPreferences.applicationEventUsePriority)
                 eventPriority = "[P:" + (event._priority + Event.EPRIORITY_HIGHEST) + "] ";
-            //else
-            //    eventPriority = "[P:" + "5" + "] ";
-            if (event._forceRun) {
-                _eventName = eventStartOrder + eventPriority + "[\u00BB] " + _eventName;
-            } else
-                _eventName = eventStartOrder + eventPriority + _eventName;
+            boolean addedLF = false;
+            if (eventStartOrder.isEmpty() && eventPriority.isEmpty()) {
+                if (event._ignoreManualActivation) {
+                    addedLF = true;
+                    if (event._noPauseByManualActivation)
+                        _eventName = event._name + "\n" + "[»»]";
+                    else
+                        _eventName = event._name + "\n" + "[»]";
+                } else
+                    _eventName = event._name;
+            }
+            else {
+                addedLF = true;
+                if (event._ignoreManualActivation) {
+                    if (event._noPauseByManualActivation)
+                        _eventName = event._name + "\n" + eventStartOrder + eventPriority + "[»»]";
+                    else
+                        _eventName = event._name + "\n" + eventStartOrder + eventPriority + "[»]";
+                } else
+                    _eventName = event._name + "\n" + eventStartOrder + eventPriority;
+            }
 
             if (!event._startWhenActivatedProfile.isEmpty()) {
                 String[] splits = event._startWhenActivatedProfile.split("\\|");
                 Profile profile;
                 if (splits.length == 1) {
-                    profile = editorFragment.activityDataWrapper.getProfileById(Long.valueOf(event._startWhenActivatedProfile), false, false, false);
-                    if (profile != null)
-                        _eventName = _eventName + "\n" + "[#] " + profile._name;
+                    profile = editorFragment.activityDataWrapper.getProfileById(Long.parseLong(event._startWhenActivatedProfile), false, false, false);
+                    if (profile != null) {
+                        if (addedLF)
+                            _eventName = _eventName + "  ";
+                        else
+                            _eventName = _eventName + "\n";
+                        _eventName = _eventName + "[#] " + profile._name;
+                    }
                 } else {
-                    _eventName = _eventName + "\n" + "[#] " + context.getString(R.string.profile_multiselect_summary_text_selected) + " " + splits.length;
+                    if (addedLF)
+                        _eventName = _eventName + "  ";
+                    else
+                        _eventName = _eventName + "\n";
+                    _eventName = _eventName + "[#] " + context.getString(R.string.profile_multiselect_summary_text_selected) + " " + splits.length;
                 }
             }
 
-            if (!isRunnable)
-                _eventName = _eventName + "\n\n" + context.getResources().getString(R.string.event_preferences_error);
-            eventName.setText(_eventName);
+            Spannable sbt = new SpannableString(_eventName);
+            sbt.setSpan(new RelativeSizeSpan(0.8f), event._name.length(), _eventName.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            eventName.setText(sbt);
 
-            if (ApplicationPreferences.applicationEditorPrefIndicator(context))
+            if (applicationEditorPrefIndicator)
             {
                 if (eventPreferencesDescription != null) {
-                    String eventPrefDescription = event.getPreferencesDescription(context);
-                    eventPreferencesDescription.setText(GlobalGUIRoutines.fromHtml(eventPrefDescription));
+                    String eventPrefDescription = event.getPreferencesDescription(context, true);
+                    eventPreferencesDescription.setText(GlobalGUIRoutines.fromHtml(eventPrefDescription, true, false, 0, 0));
                 }
             }
 
             // profile start
+            if (applicationEditorPrefIndicator) {
+                if (event._fkProfileStart == Profile.PROFILE_NO_ACTIVATE)
+                    profileStartIcon.getLayoutParams().height = 1;
+                else
+                    profileStartIcon.getLayoutParams().height = GlobalGUIRoutines.dpToPx(30);
+            }
             Profile profile =  editorFragment.activityDataWrapper.getProfileById(event._fkProfileStart, true,
-                    ApplicationPreferences.applicationEditorPrefIndicator(editorFragment.activityDataWrapper.context), false);
+                    applicationEditorPrefIndicator, false);
             if (profile != null)
             {
                 String profileName = profile._name;
@@ -171,8 +275,9 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
                         profileStartIcon.setImageBitmap(profile._iconBitmap);
                     else {
                         //holder.profileStartIcon.setImageBitmap(null);
-                        int res = context.getResources().getIdentifier(profile.getIconIdentifier(), "drawable",
-                                context.getPackageName());
+                        //int res = context.getResources().getIdentifier(profile.getIconIdentifier(), "drawable",
+                        //        context.PPApplication.PACKAGE_NAME);
+                        int res = Profile.getIconResource(profile.getIconIdentifier());
                         profileStartIcon.setImageResource(res); // icon resource
                     }
                 }
@@ -181,7 +286,7 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
                     profileStartIcon.setImageBitmap(profile._iconBitmap);
                 }
 
-                if (ApplicationPreferences.applicationEditorPrefIndicator(context))
+                if (applicationEditorPrefIndicator)
                 {
                     //profilePrefIndicatorImageView.setImageBitmap(null);
                     //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
@@ -196,56 +301,93 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
             }
             else
             {
-                profileStartName.setText(R.string.profile_preference_profile_not_set);
-                profileStartIcon.setImageResource(R.drawable.ic_profile_default);
-                if (ApplicationPreferences.applicationEditorPrefIndicator(context))
-                {
-                    //profilePrefIndicatorImageView.setImageBitmap(null);
-                    //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
-                    //profilePrefIndicatorImageView.setImageBitmap(bitmap);
-                    if (profileStartIndicator != null)
-                        profileStartIndicator.setImageResource(R.drawable.ic_empty);
+                if (event._fkProfileStart == Profile.PROFILE_NO_ACTIVATE) {
+                    profileStartName.setText(R.string.profile_preference_profile_end_no_activate);
+                    profileStartIcon.setImageResource(R.drawable.ic_empty);
+                    if (applicationEditorPrefIndicator) {
+                        //profilePrefIndicatorImageView.setImageBitmap(null);
+                        //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
+                        //profilePrefIndicatorImageView.setImageBitmap(bitmap);
+                        if (profileStartIndicator != null)
+                            //profileStartIndicator.setImageResource(R.drawable.ic_empty);
+                            profileStartIndicator.setVisibility(View.GONE);
+                    }
+                }
+                else {
+                    profileStartName.setText(R.string.profile_preference_profile_not_set);
+                    profileStartIcon.setImageResource(R.drawable.ic_profile_default);
+                    if (applicationEditorPrefIndicator)
+                    {
+                        //profilePrefIndicatorImageView.setImageBitmap(null);
+                        //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
+                        //profilePrefIndicatorImageView.setImageBitmap(bitmap);
+                        if (profileStartIndicator != null)
+                            profileStartIndicator.setImageResource(R.drawable.ic_empty);
+                    }
                 }
             }
 
             // profile end
-            if (event._manualProfileActivation) {
+            /*if (event._manualProfileActivation) {
                 profileEndIcon.setVisibility(View.GONE);
                 profileEndName.setVisibility(View.GONE);
                 if (profileEndIndicator != null)
                     profileEndIndicator.setVisibility(View.GONE);
             }
-            else {
+            else*/ {
                 profileEndIcon.setVisibility(View.VISIBLE);
+                if (applicationEditorPrefIndicator) {
+                    if (event._fkProfileEnd == Profile.PROFILE_NO_ACTIVATE)
+                        profileEndIcon.getLayoutParams().height = 1;
+                    else
+                        profileEndIcon.getLayoutParams().height = GlobalGUIRoutines.dpToPx(30);
+                }
                 profileEndName.setVisibility(View.VISIBLE);
                 if (profileEndIndicator != null)
                     profileEndIndicator.setVisibility(View.VISIBLE);
 
                 profile = editorFragment.activityDataWrapper.getProfileById(event._fkProfileEnd, true,
-                        ApplicationPreferences.applicationEditorPrefIndicator(editorFragment.activityDataWrapper.context), false);
+                        applicationEditorPrefIndicator, false);
+                //noinspection IfStatementWithIdenticalBranches
                 if (profile != null) {
-                    String profileName = profile._name;
-                    if (event._delayEnd > 0)
-                        profileName = "[" + GlobalGUIRoutines.getDurationString(event._delayEnd) + "] " + profileName;
-                    if (event._atEndDo == Event.EATENDDO_UNDONE_PROFILE)
-                        profileName = profileName + " + " + context.getResources().getString(R.string.event_prefernce_profile_undone);
-                    else if (event._atEndDo == Event.EATENDDO_RESTART_EVENTS)
-                        profileName = profileName + " + " + context.getResources().getString(R.string.event_preference_profile_restartEvents);
+                    String profileName;
+                    //noinspection IfStatementWithIdenticalBranches
+                    //if (event._atEndHowUndo == 0) {
+                        if (event._manualProfileActivationAtEnd)
+                            profileName = "[M] " +profile._name;
+                        else
+                            profileName = profile._name;
+                        if (event._delayEnd > 0)
+                            profileName = "[" + GlobalGUIRoutines.getDurationString(event._delayEnd) + "] " + profileName;
+                        if (event._atEndDo == Event.EATENDDO_UNDONE_PROFILE)
+                            profileName = profileName + " + " + context.getResources().getString(R.string.event_preference_profile_undone);
+                        else if (event._atEndDo == Event.EATENDDO_RESTART_EVENTS)
+                            profileName = profileName + " + " + context.getResources().getString(R.string.event_preference_profile_restartEvents);
+                    //}
+                    //else {
+                    //    if (event._delayEnd > 0)
+                    //        profileName = "[" + GlobalGUIRoutines.getDurationString(event._delayEnd) + "]";
+                    //    if (event._atEndDo == Event.EATENDDO_UNDONE_PROFILE)
+                    //        profileName = profileName + " + " + context.getResources().getString(R.string.event_preference_profile_undone);
+                    //    else if (event._atEndDo == Event.EATENDDO_RESTART_EVENTS)
+                    //        profileName = profileName + " + " + context.getResources().getString(R.string.event_preference_profile_restartEvents);
+                    //}
                     profileEndName.setText(profileName);
                     if (profile.getIsIconResourceID()) {
                         if (profile._iconBitmap != null)
                             profileEndIcon.setImageBitmap(profile._iconBitmap);
                         else {
                             //holder.profileEndIcon.setImageBitmap(null);
-                            int res = context.getResources().getIdentifier(profile.getIconIdentifier(), "drawable",
-                                    context.getPackageName());
+                            //int res = context.getResources().getIdentifier(profile.getIconIdentifier(), "drawable",
+                            //        context.PPApplication.PACKAGE_NAME);
+                            int res = Profile.getIconResource(profile.getIconIdentifier());
                             profileEndIcon.setImageResource(res); // icon resource
                         }
                     } else {
                         profileEndIcon.setImageBitmap(profile._iconBitmap);
                     }
 
-                    if (ApplicationPreferences.applicationEditorPrefIndicator(context)) {
+                    if (applicationEditorPrefIndicator) {
                         //profilePrefIndicatorImageView.setImageBitmap(null);
                         //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
                         //profilePrefIndicatorImageView.setImageBitmap(bitmap);
@@ -260,19 +402,24 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
                     String profileName = "";
                     if (event._delayEnd > 0)
                         profileName = "[" + GlobalGUIRoutines.getDurationString(event._delayEnd) + "] ";
-                    if (event._atEndDo == Event.EATENDDO_UNDONE_PROFILE)
-                        profileName = profileName + context.getResources().getString(R.string.event_prefernce_profile_undone);
+                    if (event._atEndDo == Event.EATENDDO_UNDONE_PROFILE) {
+                        if (event._manualProfileActivationAtEnd)
+                            profileName = "[M] ";
+                        profileName = profileName + context.getResources().getString(R.string.event_preference_profile_undone);
+                    }
                     else if (event._atEndDo == Event.EATENDDO_RESTART_EVENTS)
                         profileName = profileName + context.getResources().getString(R.string.event_preference_profile_restartEvents);
                     else {
-                        if (event._fkProfileEnd == Profile.PROFILE_NO_ACTIVATE)
-                            profileName = profileName + context.getResources().getString(R.string.profile_preference_profile_end_no_activate);
-                        else
-                            profileName = profileName + context.getResources().getString(R.string.profile_preference_profile_not_set);
+                        //if (event._atEndHowUndo == 0) {
+                            if (event._fkProfileEnd == Profile.PROFILE_NO_ACTIVATE)
+                                profileName = profileName + context.getResources().getString(R.string.profile_preference_profile_end_no_activate);
+                            else
+                                profileName = profileName + context.getResources().getString(R.string.profile_preference_profile_not_set);
+                        //}
                     }
                     profileEndName.setText(profileName);
                     profileEndIcon.setImageResource(R.drawable.ic_empty);
-                    if (ApplicationPreferences.applicationEditorPrefIndicator(context)) {
+                    if (applicationEditorPrefIndicator) {
                         //profilePrefIndicatorImageView.setImageBitmap(null);
                         //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
                         //profilePrefIndicatorImageView.setImageBitmap(bitmap);
@@ -283,61 +430,78 @@ class EditorEventListViewHolder extends RecyclerView.ViewHolder
                 }
             }
 
+            TooltipCompat.setTooltipText(eventItemEditMenu, context.getString(R.string.tooltip_options_menu));
             eventItemEditMenu.setTag(event);
-            eventItemEditMenu.setOnClickListener(new View.OnClickListener() {
+            eventItemEditMenu.setOnClickListener(v -> editorFragment.showEditMenu(eventItemEditMenu));
 
-                public void onClick(View v) {
-                    editorFragment.showEditMenu(eventItemEditMenu);
-                }
-            });
-
+            TooltipCompat.setTooltipText(eventStatus, context.getString(R.string.editor_event_list_item_event_status));
             final ImageView _eventStatusView = eventStatus;
             final Event _event = this.event;
-            eventStatus.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
+            eventStatus.setOnClickListener(view -> {
+                if (editorFragment.getActivity() == null)
+                    return;
+
+                if (!editorFragment.getActivity().isFinishing()) {
                     EventStatusPopupWindow popup = new EventStatusPopupWindow(editorFragment, _event);
 
                     View contentView = popup.getContentView();
                     contentView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-                    int measuredW = contentView.getMeasuredWidth();
-                    int measuredH = contentView.getMeasuredHeight();
-                    //Log.d("EditorEventListAdapter.eventsRunStopIndicator.onClick","measuredW="+measuredW);
-                    //Log.d("EditorEventListAdapter.eventsRunStopIndicator.onClick","measuredH="+measuredH);
+                    int popupWidth = contentView.getMeasuredWidth();
+                    int popupHeight = contentView.getMeasuredHeight();
+                    //PPApplication.logE("EditorEventListViewHolder.bindEvent.onClick","popupWidth="+popupWidth);
+                    //PPApplication.logE("EditorEventListViewHolder.bindEvent.onClick","popupHeight="+popupHeight);
 
-                    Point screenSize = GlobalGUIRoutines.getRealScreenSize(editorFragment.getActivity());
-                    Point navigationBarSize = GlobalGUIRoutines.getNavigationBarSize(editorFragment.getActivity());
-                    if ((screenSize != null) && (navigationBarSize != null)) {
-                        int[] location = new int[2];
-                        _eventStatusView.getLocationOnScreen(location);
-                        int x = 0;
-                        int y = 0;
+                    ViewGroup activityView = editorFragment.getActivity().findViewById(android.R.id.content);
+                    //View activityView = editorFragment.getActivity().getWindow().getDecorView().getRootView();
+                    int activityHeight = activityView.getHeight();
+                    int activityWidth = activityView.getWidth();
 
-                        int statusBarHeight = (int) (24 * editorFragment.getResources().getDisplayMetrics().density + 0.5f);
+                    //int[] activityLocation = new int[2];
+                    //_eventStatusView.getLocationOnScreen(location);
+                    //activityView.getLocationInWindow(activityLocation);
 
-                        if ((location[0] + measuredW) > screenSize.x)
-                            x = -(location[0]
-                                    - (screenSize.x - measuredW));
+                    int[] statusViewLocation = new int[2];
+                    //_eventStatusView.getLocationOnScreen(statusViewLocation);
+                    _eventStatusView.getLocationInWindow(statusViewLocation);
 
-                        if ((location[1] + _eventStatusView.getHeight() + measuredH) > screenSize.y)
-                            y = -(location[1] - _eventStatusView.getHeight()
-                                    - (screenSize.y - measuredH)
-                                    + navigationBarSize.y
-                                    + statusBarHeight);
+                    int x = 0;
+                    int y = 0;
 
-                        popup.setClippingEnabled(false);
-                        popup.showOnAnchor(_eventStatusView, RelativePopupWindow.VerticalPosition.ALIGN_TOP,
-                                RelativePopupWindow.HorizontalPosition.ALIGN_LEFT, x, y);
-                    }
+                    if ((statusViewLocation[0] + popupWidth) > activityWidth)
+                        x = -(statusViewLocation[0] - (activityWidth - popupWidth));
+
+                    if ((statusViewLocation[1] + popupHeight) > activityHeight)
+                        y = -(statusViewLocation[1] - (activityHeight - popupHeight));
+
+                    //popup.setClippingEnabled(false); // disabled for draw outside activity
+                    popup.showOnAnchor(_eventStatusView, RelativePopupWindow.VerticalPosition.ALIGN_TOP,
+                            RelativePopupWindow.HorizontalPosition.ALIGN_LEFT, x, y, true);
                 }
             });
 
+            if (event._ignoreManualActivation) {
+                if (event._noPauseByManualActivation)
+                    ignoreManualActivationButton.setImageResource(R.drawable.ic_ignore_manual_activation_no_pause);
+                else
+                    ignoreManualActivationButton.setImageResource(R.drawable.ic_ignore_manual_activation);
+            }
+            else
+                ignoreManualActivationButton.setImageResource(R.drawable.ic_not_show_in_activator);
+            TooltipCompat.setTooltipText(ignoreManualActivationButton, context.getString(R.string.event_preferences_ForceRun));
+            ignoreManualActivationButton.setTag(event);
+            ignoreManualActivationButton.setOnClickListener(v -> {
+                editorFragment.showIgnoreManualActivationMenu(ignoreManualActivationButton);
+                /*final Event event = (Event)v.getTag();
+                if (event != null) {
+                    editorFragment.updateEventForceRun(event);
+                }*/
+            });
         }
-
     }
 
     @Override
     public void onClick(View v) {
+        //PPApplication.logE("EditorEventListViewHolder.onClick", "xxx");
         editorFragment.startEventPreferencesActivity(event, 0);
     }
 

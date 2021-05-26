@@ -1,43 +1,45 @@
 package sk.henrichg.phoneprofilesplus;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Intent;
 import android.content.res.TypedArray;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.readystatesoftware.systembartint.SystemBarTintManager;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+//import me.drakeet.support.toast.ToastCompat;
 
 public class NFCTagWriteActivity extends AppCompatActivity {
 
     private String tagName;
+    private long tagDbId;
 
     private NFCTagReadWriteManager nfcManager;
 
     private TextView writableTextView;
 
     public static final String EXTRA_TAG_NAME = "tag_name";
+    public static final String EXTRA_TAG_DB_ID = "tag_db_id";
 
     @SuppressLint("InlinedApi")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // must by called before super.onCreate() for PreferenceActivity
-        GlobalGUIRoutines.setTheme(this, false, false, false); // must by called before super.onCreate()
-        GlobalGUIRoutines.setLanguage(getBaseContext());
+        GlobalGUIRoutines.setTheme(this, false, false/*, false*/, false); // must by called before super.onCreate()
+        //GlobalGUIRoutines.setLanguage(this);
 
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_write_nfc_tag);
+        setTaskDescription(new ActivityManager.TaskDescription(getString(R.string.ppp_app_name)));
 
-        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) && (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP)) {
+        /*
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             Window w = getWindow(); // in Activity's onCreate() for instance
             //w.setFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION, WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
             w.setFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS, WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
@@ -47,20 +49,30 @@ public class NFCTagWriteActivity extends AppCompatActivity {
             // enable status bar tint
             tintManager.setStatusBarTintEnabled(true);
             // set a custom tint color for status bar
-            if (ApplicationPreferences.applicationTheme(getApplicationContext()).equals("material"))
-                tintManager.setStatusBarTintColor(Color.parseColor("#ff237e9f"));
-            else
-                tintManager.setStatusBarTintColor(Color.parseColor("#ff202020"));
+            switch (ApplicationPreferences.applicationTheme(getApplicationContext(), true)) {
+                case "color":
+                    tintManager.setStatusBarTintColor(ContextCompat.getColor(getBaseContext(), R.color.primary));
+                    break;
+                case "white":
+                    tintManager.setStatusBarTintColor(ContextCompat.getColor(getBaseContext(), R.color.primaryDark19_white));
+                    break;
+                default:
+                    tintManager.setStatusBarTintColor(ContextCompat.getColor(getBaseContext(), R.color.primary_dark));
+                    break;
+            }
         }
+        */
 
         if (getSupportActionBar() != null) {
             getSupportActionBar().setHomeButtonEnabled(false);
             getSupportActionBar().setDisplayHomeAsUpEnabled(false);
             getSupportActionBar().setTitle(R.string.nfc_tag_pref_dlg_writeTagTitle);
+            getSupportActionBar().setElevation(0/*GlobalGUIRoutines.dpToPx(1)*/);
         }
 
         Intent intent = getIntent();
         tagName = intent.getStringExtra(EXTRA_TAG_NAME);
+        tagDbId = intent.getLongExtra(EXTRA_TAG_DB_ID, 0);
 
         if ((tagName == null) || tagName.isEmpty()) {
             nfcManager = null;
@@ -78,64 +90,68 @@ public class NFCTagWriteActivity extends AppCompatActivity {
             writableTextView = findViewById(R.id.write_nfc_tag_writable);
             writableTextView.setText(R.string.empty_string);
 
-            nfcManager.setOnTagReadListener(new NFCTagReadWriteManager.TagReadListener() {
-                @Override
-                public void onTagRead(String tagRead) {
-                    //Toast.makeText(NFCTagWriteActivity.this, "tag read:"+tagRead, Toast.LENGTH_LONG).show();
+            nfcManager.setOnTagReadListener(tagData -> {
+//                    PPApplication.logE("[IN_LISTENER] NFCTagWriteActivity.onTagRead", "xxx");
 
-                    int[] attrs = {R.attr.navigationDrawerText};
-                    TypedArray ta = obtainStyledAttributes(attrs);
-                    int color = ta.getResourceId(0, android.R.color.black);
-                    writableTextView.setTextColor(getResources().getColor(color));
-                    ta.recycle();
+                //ToastCompat.makeText(getApplicationContext(), "tag read:"+tagData, Toast.LENGTH_LONG).show();
 
-                    if (nfcManager.tagReaded) {
-                        if (nfcManager.tagIsWritable)
-                            writableTextView.setText(R.string.nfc_tag_pref_dlg_writeToNfcTag_writable);
-                        else {
-                            writableTextView.setTextColor(Color.RED);
-                            writableTextView.setText(R.string.nfc_tag_pref_dlg_writeToNfcTag_not_writable);
-                        }
+                int[] attrs = {R.attr.activityWhiteTextColor};
+                TypedArray ta = obtainStyledAttributes(attrs);
+                int color = ta.getResourceId(0, android.R.color.black);
+                writableTextView.setTextColor(ContextCompat.getColor(getBaseContext(), color));
+                ta.recycle();
+
+                if (nfcManager.tagRead) {
+                    if (nfcManager.tagIsWritable)
+                        writableTextView.setText(R.string.nfc_tag_pref_dlg_writeToNfcTag_writable);
+                    else {
+                        writableTextView.setTextColor(Color.RED);
+                        writableTextView.setText(R.string.nfc_tag_pref_dlg_writeToNfcTag_not_writable);
                     }
-                    //Log.d("NFCTagWriteActivity.onTagRead", "xxx");
                 }
+                //Log.d("NFCTagWriteActivity.onTagRead", "xxx");
             });
 
-            nfcManager.setOnTagWriteListener(new NFCTagReadWriteManager.TagWriteListener() {
-                @Override
-                public void onTagWritten() {
-                    Toast.makeText(NFCTagWriteActivity.this, R.string.write_nfc_tag_writed, Toast.LENGTH_LONG).show();
+            nfcManager.setOnTagWriteListener(() -> {
+//                    PPApplication.logE("[IN_LISTENER] NFCTagWriteActivity.onTagWritten", "xxx");
+
+                PPApplication.showToast(getApplicationContext(), getString(R.string.write_nfc_tag_written), Toast.LENGTH_LONG);
+                Intent returnIntent = new Intent();
+                returnIntent.putExtra(EXTRA_TAG_NAME, tagName);
+                returnIntent.putExtra(EXTRA_TAG_DB_ID, tagDbId);
+                NFCTagWriteActivity.this.setResult(Activity.RESULT_OK, returnIntent);
+                try {
                     NFCTagWriteActivity.this.finish();
+                } catch (Exception e) {
+                    PPApplication.recordException(e);
                 }
             });
-            nfcManager.setOnTagWriteErrorListener(new NFCTagReadWriteManager.TagWriteErrorListener() {
-                @Override
-                public void onTagWriteError(NFCTagWriteException exception) {
-                    String text = getString(R.string.write_nfc_tag_error);
-                    text = text + ": " + exception.getType().toString();
-                    if (nfcManager.tagReaded) {
-                        if (nfcManager.tagIsWritable)
-                            text = text + " (" + getString(R.string.nfc_tag_pref_dlg_writeToNfcTag_writable) + ")";
-                        else {
-                            text = text + " (" + getString(R.string.nfc_tag_pref_dlg_writeToNfcTag_not_writable) + ")";
-                        }
-                    }
-                    writableTextView.setTextColor(Color.RED);
-                    writableTextView.setText(text);
-                    //Toast.makeText(NFCTagWriteActivity.this, exception.getType().toString(), Toast.LENGTH_LONG).show();
-                    //Toast.makeText(NFCTagWriteActivity.this, R.string.write_nfc_tag_error, Toast.LENGTH_LONG).show();
+            nfcManager.setOnTagWriteErrorListener(exception -> {
+//                    PPApplication.logE("[IN_LISTENER] NFCTagWriteActivity.onTagWriteError", "xxx");
 
-                    //NFCTagWriteActivity.this.finish();
+                String text = getString(R.string.write_nfc_tag_error);
+                text = text + ": " + exception.getType().toString();
+                if (nfcManager.tagRead) {
+                    if (nfcManager.tagIsWritable)
+                        text = text + " (" + getString(R.string.nfc_tag_pref_dlg_writeToNfcTag_writable) + ")";
+                    else {
+                        text = text + " (" + getString(R.string.nfc_tag_pref_dlg_writeToNfcTag_not_writable) + ")";
+                    }
                 }
+                writableTextView.setTextColor(Color.RED);
+                writableTextView.setText(text);
+                //ToastCompat.makeText(getApplicationContext(), exception.getType().toString(), Toast.LENGTH_LONG).show();
+                //ToastCompat.makeText(getApplicationContext().this, R.string.write_nfc_tag_error, Toast.LENGTH_LONG).show();
+                //try {
+                    //NFCTagWriteActivity.this.finish();
+                //} catch (Exception ignored) {};
             });
         }
 
         Button button = findViewById(R.id.write_nfc_tag_button);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                NFCTagWriteActivity.this.finish();
-            }
+        button.setOnClickListener(view -> {
+            NFCTagWriteActivity.this.setResult(Activity.RESULT_CANCELED);
+            NFCTagWriteActivity.this.finish();
         });
 
     }
@@ -160,8 +176,22 @@ public class NFCTagWriteActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        GlobalGUIRoutines.lockScreenOrientation(this, true);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        GlobalGUIRoutines.unlockScreenOrientation(this);
+    }
+
+    @Override
     public void onNewIntent(Intent intent){
         super.onNewIntent(intent);
+
+//        PPApplication.logE("[IN_LISTENER] NFCTagWriteActivity.onNewIntent", "xxx");
         if (nfcManager != null)
             nfcManager.onActivityNewIntent(intent);
         //Log.d("NFCTagWriteActivity.onNewIntent", "xxx");

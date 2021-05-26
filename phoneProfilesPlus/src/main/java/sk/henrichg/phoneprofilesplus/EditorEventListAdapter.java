@@ -3,12 +3,13 @@ package sk.henrichg.phoneprofilesplus;
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.graphics.Rect;
-import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.getkeepsafe.taptargetview.TapTarget;
 import com.getkeepsafe.taptargetview.TapTargetSequence;
@@ -31,6 +32,7 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
     //private boolean targetHelpsSequenceStarted;
     static final String PREF_START_TARGET_HELPS = "editor_event_list_adapter_start_target_helps";
     static final String PREF_START_TARGET_HELPS_ORDER = "editor_event_list_adapter_start_target_helps_order";
+    static final String PREF_START_TARGET_HELPS_STATUS = "editor_event_list_adapter_start_target_helps_status";
 
     EditorEventListAdapter(EditorEventListFragment f, DataWrapper pdw, int filterType,
                            OnStartDragItemListener dragStartListener)
@@ -46,7 +48,7 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
     public EditorEventListViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view;
         if (filterType == EditorEventListFragment.FILTER_TYPE_START_ORDER) {
-            if (ApplicationPreferences.applicationEditorPrefIndicator(fragment.getActivity()))
+            if (ApplicationPreferences.applicationEditorPrefIndicator)
                 view = LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.editor_event_list_item_with_order, parent, false);
             else
@@ -54,7 +56,7 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
                         .inflate(R.layout.editor_event_list_item_no_indicator_with_order, parent, false);
         }
         else {
-            if (ApplicationPreferences.applicationEditorPrefIndicator(fragment.getActivity()))
+            if (ApplicationPreferences.applicationEditorPrefIndicator)
                 view = LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.editor_event_list_item, parent, false);
             else
@@ -72,24 +74,21 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
 
         if (filterType == EditorEventListFragment.FILTER_TYPE_START_ORDER) {
             if (holder.dragHandle != null) {
-                holder.dragHandle.setOnTouchListener(new View.OnTouchListener() {
-                    @Override
-                    public boolean onTouch(View v, MotionEvent event) {
-                        switch (event.getAction()) {
-                            case MotionEvent.ACTION_DOWN:
-                                mDragStartListener.onStartDrag(holder);
-                                break;
-                            case MotionEvent.ACTION_UP:
-                                v.performClick();
-                                break;
-                            default:
-                                break;
-                        }
-                    /*if (MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
-                        mDragStartListener.onStartDrag(holder);
-                    }*/
-                        return false;
+                holder.dragHandle.setOnTouchListener((v, event1) -> {
+                    switch (event1.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            mDragStartListener.onStartDrag(holder);
+                            break;
+                        case MotionEvent.ACTION_UP:
+                            v.performClick();
+                            break;
+                        default:
+                            break;
                     }
+                /*if (MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
+                    mDragStartListener.onStartDrag(holder);
+                }*/
+                    return false;
                 });
             }
         }
@@ -123,18 +122,19 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
             for (Iterator<Event> it = activityDataWrapper.eventList.iterator(); it.hasNext(); ) {
                 Event event = it.next();
                 switch (filterType) {
+                    case EditorEventListFragment.FILTER_TYPE_NOT_STOPPED:
+                        if (event.getStatus() != Event.ESTATUS_STOP)
+                            ++count;
+                        break;
                     case EditorEventListFragment.FILTER_TYPE_RUNNING:
-                        //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_RUNNING)
                         if (event.getStatus() == Event.ESTATUS_RUNNING)
                             ++count;
                         break;
                     case EditorEventListFragment.FILTER_TYPE_PAUSED:
-                        //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_PAUSE)
                         if (event.getStatus() == Event.ESTATUS_PAUSE)
                             ++count;
                         break;
                     case EditorEventListFragment.FILTER_TYPE_STOPPED:
-                        //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_STOP)
                         if (event.getStatus() == Event.ESTATUS_STOP)
                             ++count;
                         break;
@@ -162,18 +162,19 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
                 for (Iterator<Event> it = activityDataWrapper.eventList.iterator(); it.hasNext(); ) {
                     Event event = it.next();
                     switch (filterType) {
+                        case EditorEventListFragment.FILTER_TYPE_NOT_STOPPED:
+                            if (event.getStatus() != Event.ESTATUS_STOP)
+                                ++pos;
+                            break;
                         case EditorEventListFragment.FILTER_TYPE_RUNNING:
-                            //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_RUNNING)
                             if (event.getStatus() == Event.ESTATUS_RUNNING)
                                 ++pos;
                             break;
                         case EditorEventListFragment.FILTER_TYPE_PAUSED:
-                            //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_PAUSE)
                             if (event.getStatus() == Event.ESTATUS_PAUSE)
                                 ++pos;
                             break;
                         case EditorEventListFragment.FILTER_TYPE_STOPPED:
-                            //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_STOP)
                             if (event.getStatus() == Event.ESTATUS_STOP)
                                 ++pos;
                             break;
@@ -208,18 +209,19 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
                     case EditorEventListFragment.FILTER_TYPE_START_ORDER:
                         ++pos;
                         break;
+                    case EditorEventListFragment.FILTER_TYPE_NOT_STOPPED:
+                        if (event.getStatus() != Event.ESTATUS_STOP)
+                            ++pos;
+                        break;
                     case EditorEventListFragment.FILTER_TYPE_RUNNING:
-                        //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_RUNNING)
                         if (event.getStatus() == Event.ESTATUS_RUNNING)
                             ++pos;
                         break;
                     case EditorEventListFragment.FILTER_TYPE_PAUSED:
-                        //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_PAUSE)
                         if (event.getStatus() == Event.ESTATUS_PAUSE)
                             ++pos;
                         break;
                     case EditorEventListFragment.FILTER_TYPE_STOPPED:
-                        //if (event.getStatusFromDB(dataWrapper) == Event.ESTATUS_STOP)
                         if (event.getStatus() == Event.ESTATUS_STOP)
                             ++pos;
                         break;
@@ -270,26 +272,38 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
             if (!activityDataWrapper.eventListFilled)
                 return;
 
-            fragment.listView.getRecycledViewPool().clear();
+            fragment.listView.getRecycledViewPool().clear(); // maybe fix for java.lang.IndexOutOfBoundsException: Inconsistency detected.
             activityDataWrapper.eventList.clear();
         }
         notifyDataSetChanged();
     }
 
+    /*
+    void setFilterType (int filterType) {
+        this.filterType = filterType;
+    }
+    */
+
     public void notifyDataSetChanged(boolean refreshIcons) {
         if (refreshIcons) {
             synchronized (activityDataWrapper.eventList) {
+                boolean applicationEditorPrefIndicator = ApplicationPreferences.applicationEditorPrefIndicator;
                 //noinspection ForLoopReplaceableByForEach
                 for (Iterator<Event> it = activityDataWrapper.eventList.iterator(); it.hasNext(); ) {
                     Event event = it.next();
-                    Profile profile = activityDataWrapper.getProfileById(event._fkProfileStart, true,
-                            ApplicationPreferences.applicationEditorPrefIndicator(activityDataWrapper.context), false);
-                    activityDataWrapper.refreshProfileIcon(profile, true,
-                            ApplicationPreferences.applicationEditorPrefIndicator(activityDataWrapper.context));
-                    profile = activityDataWrapper.getProfileById(event._fkProfileEnd, true,
-                            ApplicationPreferences.applicationEditorPrefIndicator(activityDataWrapper.context), false);
-                    activityDataWrapper.refreshProfileIcon(profile, true,
-                            ApplicationPreferences.applicationEditorPrefIndicator(activityDataWrapper.context));
+                    Profile profile;
+                    if (event._fkProfileStart != Profile.PROFILE_NO_ACTIVATE) {
+                        profile = activityDataWrapper.getProfileById(event._fkProfileStart, true,
+                                applicationEditorPrefIndicator, false);
+                        activityDataWrapper.refreshProfileIcon(profile, true,
+                                applicationEditorPrefIndicator);
+                    }
+                    if (event._fkProfileEnd != Profile.PROFILE_NO_ACTIVATE) {
+                        profile = activityDataWrapper.getProfileById(event._fkProfileEnd, true,
+                                applicationEditorPrefIndicator, false);
+                        activityDataWrapper.refreshProfileIcon(profile, true,
+                                applicationEditorPrefIndicator);
+                    }
                 }
             }
         }
@@ -331,6 +345,7 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
             }
 
             DatabaseHandler.getInstance(activityDataWrapper.context).setEventStartOrder(activityDataWrapper.eventList);  // set events _startOrder and write it into db
+            activityDataWrapper.restartEventsWithDelay(15, true, false, false, PPApplication.ALTYPE_EVENT_PREFERENCES_CHANGED);
         }
         notifyItemMoved(fromPosition, toPosition);
         return true;
@@ -345,128 +360,189 @@ class EditorEventListAdapter extends RecyclerView.Adapter<EditorEventListViewHol
         if (fragment.targetHelpsSequenceStarted)
             return;
 
-        ApplicationPreferences.getSharedPreferences(activity);
+        boolean startTargetHelps = ApplicationPreferences.prefEditorEventsAdapterStartTargetHelps;
+        boolean startTargetHelpsOrder = ApplicationPreferences.prefEditorEventsAdapterStartTargetHelpsOrder;
+        boolean startTargetHelpsStatus = ApplicationPreferences.prefEditorEventsAdapterStartTargetHelpsStatus;
 
-        if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS, true) || ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS_ORDER, true)) {
+        if (startTargetHelps || startTargetHelpsOrder || startTargetHelpsStatus) {
 
-            //Log.d("EditorEventListAdapter.showTargetHelps", "PREF_START_TARGET_HELPS_ORDER=true");
+            //String appTheme = ApplicationPreferences.applicationTheme(activity, true);
+            int outerCircleColor = R.color.tabTargetHelpOuterCircleColor;
+//                if (appTheme.equals("dark"))
+//                    outerCircleColor = R.color.tabTargetHelpOuterCircleColor_dark;
+            int targetCircleColor = R.color.tabTargetHelpTargetCircleColor;
+//                if (appTheme.equals("dark"))
+//                    targetCircleColor = R.color.tabTargetHelpTargetCircleColor_dark;
+            int textColor = R.color.tabTargetHelpTextColor;
+//                if (appTheme.equals("dark"))
+//                    textColor = R.color.tabTargetHelpTextColor_dark;
+            //boolean tintTarget = !appTheme.equals("white");
 
-            int circleColor = 0xFFFFFF;
-            if (ApplicationPreferences.applicationTheme(activity).equals("dark"))
-                circleColor = 0x7F7F7F;
+            //Log.d("EditorEventListAdapter.showTargetHelps", "PREF_START_TARGET_HELPS=true");
 
-            if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS, true)) {
-                //Log.d("EditorEventListAdapter.showTargetHelps", "PREF_START_TARGET_HELPS=true");
+            Rect eventItemTarget = new Rect(0, 0, listItemView.getHeight(), listItemView.getHeight());
+            int[] screenLocation = new int[2];
+            listItemView.getLocationOnScreen(screenLocation);
+            //listItemView.getLocationInWindow(screenLocation);
 
-                SharedPreferences.Editor editor = ApplicationPreferences.preferences.edit();
+            final TapTargetSequence sequence = new TapTargetSequence(activity);
+
+            if (startTargetHelps) {
+
+                SharedPreferences.Editor editor = ApplicationPreferences.getEditor(activityDataWrapper.context);
                 editor.putBoolean(PREF_START_TARGET_HELPS, false);
+                editor.putBoolean(PREF_START_TARGET_HELPS_STATUS, false);
                 editor.apply();
+                ApplicationPreferences.prefEditorEventsAdapterStartTargetHelps = false;
+                ApplicationPreferences.prefEditorEventsAdapterStartTargetHelpsStatus = false;
 
-                Rect eventItemTarget = new Rect(0, 0, listItemView.getHeight(), listItemView.getHeight());
-                int[] screenLocation = new int[2];
-                listItemView.getLocationOnScreen(screenLocation);
-                eventItemTarget.offset(screenLocation[0] + listItemView.getWidth() / 2 - listItemView.getHeight() / 2, screenLocation[1]);
-
-                final TapTargetSequence sequence = new TapTargetSequence(activity);
+                // do not add it again
+                startTargetHelpsStatus = false;
 
                 if (filterType == EditorEventListFragment.FILTER_TYPE_START_ORDER) {
+                    View view = listItemView.findViewById(R.id.event_list_drag_handle);
+                    eventItemTarget.offset(screenLocation[0] + 80 + view.getWidth(), screenLocation[1]);
+
                     editor.putBoolean(PREF_START_TARGET_HELPS_ORDER, false);
                     editor.apply();
+                    ApplicationPreferences.prefEditorEventsAdapterStartTargetHelpsOrder = false;
+
+                    // do not add it again
+                    startTargetHelpsOrder = false;
 
                     sequence.targets(
                             TapTarget.forBounds(eventItemTarget, activity.getString(R.string.editor_activity_targetHelps_eventPreferences_title), activity.getString(R.string.editor_activity_targetHelps_eventPreferences_description))
                                     .transparentTarget(true)
-                                    .textColorInt(0xFFFFFF)
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
                                     .drawShadow(true)
                                     .id(1),
                             TapTarget.forView(listItemView.findViewById(R.id.event_list_item_edit_menu), activity.getString(R.string.editor_activity_targetHelps_eventMenu_title), activity.getString(R.string.editor_activity_targetHelps_eventMenu_description))
-                                    .targetCircleColorInt(circleColor)
-                                    .textColorInt(0xFFFFFF)
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
                                     .drawShadow(true)
                                     .id(2),
-                            TapTarget.forView(listItemView.findViewById(R.id.event_list_drag_handle), activity.getString(R.string.editor_activity_targetHelps_eventOrderHandler_title), activity.getString(R.string.editor_activity_targetHelps_eventOrderHandler_description))
-                                    .targetCircleColorInt(circleColor)
-                                    .textColorInt(0xFFFFFF)
+                            TapTarget.forView(listItemView.findViewById(R.id.event_list_item_ignore_manual_activation), activity.getString(R.string.editor_activity_targetHelps_ignoreManualActivation_title), activity.getString(R.string.editor_activity_targetHelps_ignoreManualActivation_description))
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
                                     .drawShadow(true)
-                                    .id(3)
+                                    .id(3),
+                            TapTarget.forView(listItemView.findViewById(R.id.event_list_drag_handle), activity.getString(R.string.editor_activity_targetHelps_eventOrderHandler_title), activity.getString(R.string.editor_activity_targetHelps_eventOrderHandler_description))
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
+                                    .drawShadow(true)
+                                    .id(4),
+                            TapTarget.forView(listItemView.findViewById(R.id.event_list_item_status), activity.getString(R.string.editor_activity_targetHelps_eventStatusIcon_title), activity.getString(R.string.editor_activity_targetHelps_eventStatusIcon_description))
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(false)
+                                    .drawShadow(true)
+                                    .id(5)
                     );
                 } else {
+                    eventItemTarget.offset(screenLocation[0] + 80, screenLocation[1]);
+
                     sequence.targets(
                             TapTarget.forBounds(eventItemTarget, activity.getString(R.string.editor_activity_targetHelps_eventPreferences_title), activity.getString(R.string.editor_activity_targetHelps_eventPreferences_description))
                                     .transparentTarget(true)
-                                    .textColorInt(0xFFFFFF)
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
                                     .drawShadow(true)
                                     .id(1),
                             TapTarget.forView(listItemView.findViewById(R.id.event_list_item_edit_menu), activity.getString(R.string.editor_activity_targetHelps_eventMenu_title), activity.getString(R.string.editor_activity_targetHelps_eventMenu_description))
-                                    .targetCircleColorInt(circleColor)
-                                    .textColorInt(0xFFFFFF)
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
                                     .drawShadow(true)
-                                    .id(2)
+                                    .id(2),
+                            TapTarget.forView(listItemView.findViewById(R.id.event_list_item_ignore_manual_activation), activity.getString(R.string.editor_activity_targetHelps_ignoreManualActivation_title), activity.getString(R.string.editor_activity_targetHelps_ignoreManualActivation_description))
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
+                                    .drawShadow(true)
+                                    .id(3),
+                            TapTarget.forView(listItemView.findViewById(R.id.event_list_item_status), activity.getString(R.string.editor_activity_targetHelps_eventStatusIcon_title), activity.getString(R.string.editor_activity_targetHelps_eventStatusIcon_description))
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(false)
+                                    .drawShadow(true)
+                                    .id(4)
                     );
                 }
-                sequence.listener(new TapTargetSequence.Listener() {
-                    // This listener will tell us when interesting(tm) events happen in regards
-                    // to the sequence
-                    @Override
-                    public void onSequenceFinish() {
-                        //targetHelpsSequenceStarted = false;
-                    }
-
-                    @Override
-                    public void onSequenceStep(TapTarget lastTarget, boolean targetClicked) {
-                        //Log.d("TapTargetView", "Clicked on " + lastTarget.id());
-                    }
-
-                    @Override
-                    public void onSequenceCanceled(TapTarget lastTarget) {
-                        //targetHelpsSequenceStarted = false;
-                    }
-                });
-                sequence.continueOnCancel(true)
-                        .considerOuterCircleCanceled(true);
-                //targetHelpsSequenceStarted = true;
-                sequence.start();
             }
-            else
-            if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS_ORDER, true)) {
-                //Log.d("EditorEventListAdapter.showTargetHelps", "PREF_START_TARGET_HELPS=false");
+
+            if (startTargetHelpsOrder) {
                 if (filterType == EditorEventListFragment.FILTER_TYPE_START_ORDER) {
-                    SharedPreferences.Editor editor = ApplicationPreferences.preferences.edit();
+                    SharedPreferences.Editor editor = ApplicationPreferences.getEditor(activityDataWrapper.context);
                     editor.putBoolean(PREF_START_TARGET_HELPS_ORDER, false);
                     editor.apply();
+                    ApplicationPreferences.prefEditorEventsAdapterStartTargetHelpsOrder = false;
 
-                    final TapTargetSequence sequence = new TapTargetSequence(activity);
                     sequence.targets(
                             TapTarget.forView(listItemView.findViewById(R.id.event_list_drag_handle), activity.getString(R.string.editor_activity_targetHelps_eventOrderHandler_title), activity.getString(R.string.editor_activity_targetHelps_eventOrderHandler_description))
-                                    .targetCircleColorInt(circleColor)
-                                    .textColorInt(0xFFFFFF)
+                                    .outerCircleColor(outerCircleColor)
+                                    .targetCircleColor(targetCircleColor)
+                                    .textColor(textColor)
+                                    .tintTarget(true)
                                     .drawShadow(true)
                                     .id(1)
                     );
-                    sequence.listener(new TapTargetSequence.Listener() {
-                        // This listener will tell us when interesting(tm) events happen in regards
-                        // to the sequence
-                        @Override
-                        public void onSequenceFinish() {
-                            //targetHelpsSequenceStarted = false;
-                        }
-
-                        @Override
-                        public void onSequenceStep(TapTarget lastTarget, boolean targetClicked) {
-                            //Log.d("TapTargetView", "Clicked on " + lastTarget.id());
-                        }
-
-                        @Override
-                        public void onSequenceCanceled(TapTarget lastTarget) {
-                            //targetHelpsSequenceStarted = false;
-                        }
-                    });
-                    sequence.continueOnCancel(true)
-                            .considerOuterCircleCanceled(true);
-                    //targetHelpsSequenceStarted = true;
-                    sequence.start();
                 }
             }
+
+            if (startTargetHelpsStatus) {
+                SharedPreferences.Editor editor = ApplicationPreferences.getEditor(activityDataWrapper.context);
+                editor.putBoolean(PREF_START_TARGET_HELPS_STATUS, false);
+                editor.apply();
+                ApplicationPreferences.prefEditorEventsAdapterStartTargetHelpsStatus= false;
+
+                sequence.targets(
+                        TapTarget.forView(listItemView.findViewById(R.id.event_list_item_status), activity.getString(R.string.editor_activity_targetHelps_eventStatusIcon_title), activity.getString(R.string.editor_activity_targetHelps_eventStatusIcon_description))
+                                .outerCircleColor(outerCircleColor)
+                                .targetCircleColor(targetCircleColor)
+                                .textColor(textColor)
+                                .tintTarget(false)
+                                .drawShadow(true)
+                                .id(1)
+                );
+            }
+
+            sequence.listener(new TapTargetSequence.Listener() {
+                // This listener will tell us when interesting(tm) events happen in regards
+                // to the sequence
+                @Override
+                public void onSequenceFinish() {
+                    //targetHelpsSequenceStarted = false;
+                }
+
+                @Override
+                public void onSequenceStep(TapTarget lastTarget, boolean targetClicked) {
+                    //Log.d("TapTargetView", "Clicked on " + lastTarget.id());
+                }
+
+                @Override
+                public void onSequenceCanceled(TapTarget lastTarget) {
+                    //targetHelpsSequenceStarted = false;
+                }
+            });
+            sequence.continueOnCancel(true)
+                    .considerOuterCircleCanceled(true);
+            //targetHelpsSequenceStarted = true;
+            sequence.start();
         }
     }
 

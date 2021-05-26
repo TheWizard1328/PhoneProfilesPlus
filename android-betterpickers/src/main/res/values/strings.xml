@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="number_picker_minus_label" translatable="false">—</string>
+    <string name="number_picker_plus_minus" translatable="false">+/-</string>
+    <string name="number_picker_separator" translatable="false">.</string>
+</resources>
+

@@ -3,53 +3,39 @@ package sk.henrichg.phoneprofilesplus;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.app.KeyguardManager;
-import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
-import android.content.res.Resources;
-import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
-import android.location.LocationManager;
 import android.media.AudioManager;
-import android.net.ConnectivityManager;
-import android.net.Network;
-import android.net.NetworkInfo;
-import android.net.Uri;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
-import android.nfc.NfcAdapter;
-import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.PowerManager;
-import android.provider.ContactsContract;
 import android.provider.Settings;
-import android.support.v4.content.pm.ShortcutInfoCompat;
-import android.support.v4.content.pm.ShortcutManagerCompat;
-import android.support.v4.graphics.drawable.IconCompat;
-import android.support.v7.app.AlertDialog;
-import android.telephony.PhoneNumberUtils;
-import android.text.format.DateFormat;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.CharacterStyle;
 import android.widget.Toast;
 
-import java.text.SimpleDateFormat;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-import static android.content.Context.POWER_SERVICE;
+//import me.drakeet.support.toast.ToastCompat;
 
 public class DataWrapper {
 
@@ -57,32 +43,58 @@ public class DataWrapper {
     //private boolean forGUI = false;
     private boolean monochrome = false;
     private int monochromeValue = 0xFF;
+    private boolean useMonochromeValueForCustomIcon = false;
 
     boolean profileListFilled = false;
     boolean eventListFilled = false;
+    private boolean eventTimelineListFilled = false;
+    @SuppressWarnings("Convert2Diamond")
     final List<Profile> profileList = Collections.synchronizedList(new ArrayList<Profile>());
+    @SuppressWarnings("Convert2Diamond")
     final List<Event> eventList = Collections.synchronizedList(new ArrayList<Event>());
+    @SuppressWarnings("Convert2Diamond")
+    private final List<EventTimeline> eventTimelines = Collections.synchronizedList(new ArrayList<EventTimeline>());
 
     //static final String EXTRA_INTERACTIVE = "interactive";
 
-    DataWrapper(Context c,
+    private static final String ACTIVATED_PROFILES_FIFO_COUNT_PREF = "activated_profiles_fifo_count";
+    private static final String ACTIVATED_PROFILES_FIFO_ID_PREF = "activated_profiles_fifo_id";
+
+    DataWrapper(Context _context,
                         //boolean fgui,
                         boolean mono,
-                        int monoVal)
+                        int monoVal,
+                        boolean useMonoValForCustomIcon)
     {
-        context = c;
+        context = _context.getApplicationContext();
 
-        setParameters(/*fgui, */mono, monoVal);
+        setParameters(/*fgui, */mono, monoVal, useMonoValForCustomIcon);
     }
 
     void setParameters(
             //boolean fgui,
             boolean mono,
-            int monoVal)
+            int monoVal,
+            boolean useMonoValForCustomIcon)
     {
         //forGUI = fgui;
         monochrome = mono;
         monochromeValue = monoVal;
+        useMonochromeValueForCustomIcon = useMonoValForCustomIcon;
+    }
+
+    private DataWrapper copyDataWrapper() {
+        DataWrapper dataWrapper = new DataWrapper(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
+        synchronized (profileList) {
+            dataWrapper.copyProfileList(this);
+        }
+        synchronized (eventList) {
+            dataWrapper.copyEventList(this);
+        }
+        synchronized (eventTimelines) {
+            dataWrapper.copyEventTimelineList(this);
+        }
+        return dataWrapper;
     }
 
     void fillProfileList(boolean generateIcons, boolean generateIndicators)
@@ -105,7 +117,7 @@ public class DataWrapper {
             for (Iterator<Profile> it = newProfileList.iterator(); it.hasNext();) {
                 Profile profile = it.next();
                 if (generateIcons)
-                    profile.generateIconBitmap(context, monochrome, monochromeValue);
+                    profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
                 if (generateIndicators)
                     profile.generatePreferencesIndicator(context, monochrome, monochromeValue);
             }
@@ -139,84 +151,112 @@ public class DataWrapper {
 
     static Profile getNonInitializedProfile(String name, String icon, int order)
     {
+        //noinspection ConstantConditions
         return new Profile(
                 name,
                 icon + Profile.defaultValuesString.get("prf_pref_profileIcon_withoutIcon"),
                 false,
                 order,
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_volumeRingerMode")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_volumeRingerMode")),
                 Profile.defaultValuesString.get("prf_pref_volumeRingtone"),
                 Profile.defaultValuesString.get("prf_pref_volumeNotification"),
                 Profile.defaultValuesString.get("prf_pref_volumeMedia"),
                 Profile.defaultValuesString.get("prf_pref_volumeAlarm"),
                 Profile.defaultValuesString.get("prf_pref_volumeSystem"),
                 Profile.defaultValuesString.get("prf_pref_volumeVoice"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_soundRingtoneChange")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundRingtoneChange")),
                 Settings.System.DEFAULT_RINGTONE_URI.toString(),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_soundNotificationChange")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundNotificationChange")),
                 Settings.System.DEFAULT_NOTIFICATION_URI.toString(),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_soundAlarmChange")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundAlarmChange")),
                 Settings.System.DEFAULT_ALARM_ALERT_URI.toString(),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceAirplaneMode")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceWiFi")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceBluetooth")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceScreenTimeout")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceAirplaneMode")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceWiFi")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceBluetooth")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceScreenTimeout")),
                 Profile.BRIGHTNESS_ADAPTIVE_BRIGHTNESS_NOT_SET + Profile.defaultValuesString.get("prf_pref_deviceBrightness_withoutLevel"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceWallpaperChange")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceWallpaperChange")),
                 Profile.defaultValuesString.get("prf_pref_deviceWallpaper"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceMobileData")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceMobileDataPrefs")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceGPS")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceRunApplicationChange")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceMobileData")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceMobileDataPrefs")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceGPS")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceRunApplicationChange")),
                 Profile.defaultValuesString.get("prf_pref_deviceRunApplicationPackageName"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceAutosync")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceAutosync")),
                 Profile.defaultValuesBoolean.get("prf_pref_showInActivator_notShow"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceAutoRotation")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceLocationServicePrefs")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_volumeSpeakerPhone")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceNFC")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_duration")),
-                  Profile.AFTERDURATIONDO_RESTARTEVENTS,
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_volumeZenMode")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceKeyguard")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_vibrationOnTouch")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceWiFiAP")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_devicePowerSaveMode")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceAutoRotation")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceLocationServicePrefs")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_volumeSpeakerPhone")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceNFC")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_duration")),
+                  Profile.AFTER_DURATION_DO_RESTART_EVENTS,
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_volumeZenMode")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceKeyguard")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_vibrationOnTouch")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceWiFiAP")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_devicePowerSaveMode")),
                 Profile.defaultValuesBoolean.get("prf_pref_askForDuration"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceNetworkType")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_notificationLed")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_vibrateWhenRinging")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceWallpaperFor")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceNetworkType")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_notificationLed")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_vibrateWhenRinging")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceWallpaperFor")),
                 Profile.defaultValuesBoolean.get("prf_pref_hideStatusBarIcon"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_lockDevice")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_lockDevice")),
                 Profile.defaultValuesString.get("prf_pref_deviceConnectToSSID"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_applicationDisableWifiScanning")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_applicationDisableBluetoothScanning")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_applicationDisableWifiScanning")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_applicationDisableBluetoothScanning")),
                 Profile.defaultValuesString.get("prf_pref_durationNotificationSound"),
                 Profile.defaultValuesBoolean.get("prf_pref_durationNotificationVibrate"),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceWiFiAPPrefs")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_applicationDisableLocationScanning")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_applicationDisableMobileCellScanning")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_applicationDisableOrientationScanning")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_headsUpNotifications")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceForceStopApplicationChange")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceWiFiAPPrefs")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_applicationDisableLocationScanning")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_applicationDisableMobileCellScanning")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_applicationDisableOrientationScanning")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_headsUpNotifications")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceForceStopApplicationChange")),
                 Profile.defaultValuesString.get("prf_pref_deviceForceStopApplicationPackageName"),
                 0,
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceNetworkTypePrefs")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_deviceCloseAllApplications")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_screenNightMode")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_dtmfToneWhenDialing")),
-                Integer.valueOf(Profile.defaultValuesString.get("prf_pref_soundOnTouch"))
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceNetworkTypePrefs")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceCloseAllApplications")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_screenDarkMode")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_dtmfToneWhenDialing")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundOnTouch")),
+                Profile.defaultValuesString.get("prf_pref_volumeDTMF"),
+                Profile.defaultValuesString.get("prf_pref_volumeAccessibility"),
+                Profile.defaultValuesString.get("prf_pref_volumeBluetoothSCO"),
+                Long.parseLong(Profile.defaultValuesString.get("prf_pref_afterDurationProfile")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_alwaysOnDisplay")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_screenOnPermanent")),
+                Profile.defaultValuesBoolean.get("prf_pref_volumeMuteSound"),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceLocationMode")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_applicationDisableNotificationScanning")),
+                Profile.defaultValuesString.get("prf_pref_generateNotification"),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_cameraFlash")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceNetworkTypeSIM1")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceNetworkTypeSIM2")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceMobileDataSIM1")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceMobileDataSIM2")),
+                Profile.defaultValuesString.get("prf_pref_deviceDefaultSIMCards"),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceOnOffSIM1")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_deviceOnOffSIM2")),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundRingtoneChangeSIM1")),
+                Settings.System.DEFAULT_RINGTONE_URI.toString(),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundRingtoneChangeSIM2")),
+                Settings.System.DEFAULT_RINGTONE_URI.toString(),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundNotificationChangeSIM1")),
+                Settings.System.DEFAULT_NOTIFICATION_URI.toString(),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundNotificationChangeSIM2")),
+                Settings.System.DEFAULT_NOTIFICATION_URI.toString(),
+                Integer.parseInt(Profile.defaultValuesString.get("prf_pref_soundSameRingtoneForBothSIMCards"))
             );
     }
 
     private String getVolumeLevelString(int percentage, int maxValue)
     {
-        Double dValue = maxValue / 100.0 * percentage;
-        return String.valueOf(dValue.intValue());
+        double dValue = maxValue / 100.0 * percentage;
+        return String.valueOf((int)Math.ceil(dValue));
     }
 
-    Profile getPredefinedProfile(int index, boolean saveToDB) {
+    Profile getPredefinedProfile(int index, boolean saveToDB, Context baseContext) {
         AudioManager audioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
         int maximumValueRing = 7;
         int maximumValueNotification = 7;
@@ -237,20 +277,22 @@ public class DataWrapper {
 
         switch (index) {
             case 0:
-                profile = getNonInitializedProfile(context.getString(R.string.default_profile_name_home), "ic_profile_home_2", 1);
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_home), "ic_profile_home_2", index+1);
                 profile._showInActivator = true;
                 //if (android.os.Build.VERSION.SDK_INT >= 18) {
-                    if (ActivateProfileHelper.canChangeZenMode(context, true)) {
-                        if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    if (ActivateProfileHelper.canChangeZenMode(context)) {
+                        profile._volumeRingerMode = Profile.RINGERMODE_ZENMODE;
+                        profile._volumeZenMode = Profile.ZENMODE_ALL; // ALL
+                        /*if (android.os.Build.VERSION.SDK_INT >= 23) {
                             profile._volumeRingerMode = 5;
                             profile._volumeZenMode = 1; // ALL
                         } else if (android.os.Build.VERSION.SDK_INT >= 21) {
                             profile._volumeRingerMode = 5;
                             profile._volumeZenMode = 1; // ALL
                         } else
-                            profile._volumeRingerMode = 1;
+                            profile._volumeRingerMode = 1;*/
                     } else
-                        profile._volumeRingerMode = 1;
+                        profile._volumeRingerMode = Profile.RINGERMODE_RING;
                 //} else
                 //    profile._volumeRingerMode = 1;
                 profile._volumeRingtone = getVolumeLevelString(71, maximumValueRing) + "|0|0";
@@ -261,20 +303,22 @@ public class DataWrapper {
                 //profile._deviceBrightness = "60|0|0|0";
                 break;
             case 1:
-                profile = getNonInitializedProfile(context.getString(R.string.default_profile_name_outdoor), "ic_profile_outdoors_1", 2);
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_outdoor), "ic_profile_outdoors_1", index+1);
                 profile._showInActivator = true;
                 //if (android.os.Build.VERSION.SDK_INT >= 18) {
-                    if (ActivateProfileHelper.canChangeZenMode(context, true)) {
-                        if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    if (ActivateProfileHelper.canChangeZenMode(context)) {
+                        profile._volumeRingerMode = Profile.RINGERMODE_ZENMODE;
+                        profile._volumeZenMode = Profile.ZENMODE_ALL; // ALL
+                        /*if (android.os.Build.VERSION.SDK_INT >= 23) {
                             profile._volumeRingerMode = 5;
-                            profile._volumeZenMode = 4; // ALL with vibration
+                            profile._volumeZenMode = 1; // ALL
                         } else if (android.os.Build.VERSION.SDK_INT >= 21) {
                             profile._volumeRingerMode = 5;
-                            profile._volumeZenMode = 4; // ALL with vibration
+                            profile._volumeZenMode = 1; // ALL
                         } else
-                            profile._volumeRingerMode = 2;
+                            profile._volumeRingerMode = 2;*/
                     } else
-                        profile._volumeRingerMode = 2;
+                        profile._volumeRingerMode = Profile.RINGERMODE_RING;
                 //} else
                 //    profile._volumeRingerMode = 2;
                 profile._volumeRingtone = getVolumeLevelString(100, maximumValueRing) + "|0|0";
@@ -285,20 +329,22 @@ public class DataWrapper {
                 //profile._deviceBrightness = "255|0|0|0";
                 break;
             case 2:
-                profile = getNonInitializedProfile(context.getString(R.string.default_profile_name_work), "ic_profile_work_5", 3);
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_work), "ic_profile_work_5", index+1);
                 profile._showInActivator = true;
                 //if (android.os.Build.VERSION.SDK_INT >= 18) {
-                    if (ActivateProfileHelper.canChangeZenMode(context, true)) {
-                        if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    if (ActivateProfileHelper.canChangeZenMode(context)) {
+                        profile._volumeRingerMode = Profile.RINGERMODE_ZENMODE;
+                        profile._volumeZenMode = Profile.ZENMODE_ALL_AND_VIBRATE; // ALL with vibration
+                        /*if (android.os.Build.VERSION.SDK_INT >= 23) {
                             profile._volumeRingerMode = 5;
-                            profile._volumeZenMode = 1; // ALL
+                            profile._volumeZenMode = 4; // ALL with vibration
                         } else if (android.os.Build.VERSION.SDK_INT >= 21) {
                             profile._volumeRingerMode = 5;
-                            profile._volumeZenMode = 1; // ALL
+                            profile._volumeZenMode = 4; // ALL with vibration
                         } else
-                            profile._volumeRingerMode = 1;
+                            profile._volumeRingerMode = 1;*/
                     } else
-                        profile._volumeRingerMode = 1;
+                        profile._volumeRingerMode = Profile.RINGERMODE_RING;
                 //} else
                 //    profile._volumeRingerMode = 1;
                 profile._volumeRingtone = getVolumeLevelString(57, maximumValueRing) + "|0|0";
@@ -309,20 +355,22 @@ public class DataWrapper {
                 //profile._deviceBrightness = "60|0|0|0";
                 break;
             case 3:
-                profile = getNonInitializedProfile(context.getString(R.string.default_profile_name_meeting), "ic_profile_meeting_2", 4);
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_meeting), "ic_profile_meeting_2", index+1);
                 profile._showInActivator = true;
                 //if (android.os.Build.VERSION.SDK_INT >= 18) {
-                    if (ActivateProfileHelper.canChangeZenMode(context, true)) {
-                        if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    if (ActivateProfileHelper.canChangeZenMode(context)) {
+                        profile._volumeRingerMode = Profile.RINGERMODE_ZENMODE;
+                        profile._volumeZenMode = Profile.ZENMODE_NONE; // NONE
+                        /*if (android.os.Build.VERSION.SDK_INT >= 23) {
                             profile._volumeRingerMode = 5;
                             profile._volumeZenMode = 3; // NONE
                         } else if (android.os.Build.VERSION.SDK_INT >= 21) {
                             profile._volumeRingerMode = 5;
                             profile._volumeZenMode = 3; // NONE
                         } else
-                            profile._volumeRingerMode = 4;
+                            profile._volumeRingerMode = 4;*/
                     } else
-                        profile._volumeRingerMode = 4;
+                        profile._volumeRingerMode = Profile.RINGERMODE_SILENT;
                 //} else
                 //    profile._volumeRingerMode = 4;
                 profile._volumeRingtone = getVolumeLevelString(57, maximumValueRing) + "|0|0";
@@ -333,20 +381,22 @@ public class DataWrapper {
                 //profile._deviceBrightness = Profile.BRIGHTNESS_ADAPTIVE_BRIGHTNESS_NOT_SET+"|1|1|0";
                 break;
             case 4:
-                profile = getNonInitializedProfile(context.getString(R.string.default_profile_name_sleep), "ic_profile_sleep", 5);
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_sleep), "ic_profile_sleep", index+1);
                 profile._showInActivator = true;
                 //if (android.os.Build.VERSION.SDK_INT >= 18) {
-                    if (ActivateProfileHelper.canChangeZenMode(context, true)) {
-                        if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    if (ActivateProfileHelper.canChangeZenMode(context)) {
+                        profile._volumeRingerMode = Profile.RINGERMODE_ZENMODE;
+                        profile._volumeZenMode = Profile.ZENMODE_ALARMS; // ALARMS
+                        /*if (android.os.Build.VERSION.SDK_INT >= 23) {
                             profile._volumeRingerMode = 5;
                             profile._volumeZenMode = 6; // ALARMS
                         } else if (android.os.Build.VERSION.SDK_INT >= 21) {
                             profile._volumeRingerMode = 5;
                             profile._volumeZenMode = 3; // NONE
                         } else
-                            profile._volumeRingerMode = 4;
+                            profile._volumeRingerMode = 4;*/
                     } else
-                        profile._volumeRingerMode = 4;
+                        profile._volumeRingerMode = Profile.RINGERMODE_SILENT;
                 //} else
                 //    profile._volumeRingerMode = 4;
                 profile._volumeRingtone = getVolumeLevelString(71, maximumValueRing) + "|0|0";
@@ -357,13 +407,22 @@ public class DataWrapper {
                 //profile._deviceBrightness = "10|0|0|0";
                 break;
             case 5:
-                profile = getNonInitializedProfile(context.getString(R.string.default_profile_name_battery_low), "ic_profile_battery_1", 6);
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_battery_low), "ic_profile_battery_1", index+1);
                 profile._showInActivator = false;
                 profile._deviceAutoSync = 2;
                 profile._deviceMobileData = 2;
                 profile._deviceWiFi = 2;
                 profile._deviceBluetooth = 2;
                 profile._deviceGPS = 2;
+                break;
+            case 6:
+                profile = getNonInitializedProfile(baseContext.getString(R.string.default_profile_name_battery_ok), "ic_profile_battery_3", index+1);
+                profile._showInActivator = false;
+                profile._deviceAutoSync = 1;
+                profile._deviceMobileData = 1;
+                profile._deviceWiFi = 1;
+                profile._deviceBluetooth = 1;
+                profile._deviceGPS = 1;
                 break;
             default:
                 profile = null;
@@ -377,20 +436,25 @@ public class DataWrapper {
         return profile;
     }
 
-    void fillPredefinedProfileList(boolean generateIcons, boolean generateIndicators)
+    void fillPredefinedProfileList(@SuppressWarnings("SameParameterValue") boolean generateIcons,
+                                   boolean generateIndicators,
+                                   Context baseContext)
     {
         synchronized (profileList) {
-            invalidateProfileList();
+            //invalidateProfileList();
             DatabaseHandler.getInstance(context).deleteAllProfiles();
 
-            for (int index = 0; index < 6; index++)
-                getPredefinedProfile(index, true);
+            for (int index = 0; index < 7; index++) {
+                Profile profile = getPredefinedProfile(index, true, baseContext);
+                if (profile != null)
+                    profileList.add(profile);
+            }
 
             fillProfileList(generateIcons, generateIndicators);
         }
     }
 
-    void invalidateProfileList()
+    /*void invalidateProfileList()
     {
         synchronized (profileList) {
             if (profileListFilled)
@@ -404,7 +468,7 @@ public class DataWrapper {
             }
             profileListFilled = false;
         }
-    }
+    }*/
 
     Profile getActivatedProfileFromDB(boolean generateIcon, boolean generateIndicators)
     {
@@ -412,7 +476,7 @@ public class DataWrapper {
         if (/*forGUI &&*/ (profile != null))
         {
             if (generateIcon)
-                profile.generateIconBitmap(context, monochrome, monochromeValue);
+                profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
             if (generateIndicators)
                 profile.generatePreferencesIndicator(context, monochrome, monochromeValue);
         }
@@ -422,9 +486,7 @@ public class DataWrapper {
     public Profile getActivatedProfile(boolean generateIcon, boolean generateIndicators)
     {
         synchronized (profileList) {
-            if (!profileListFilled) {
-                return getActivatedProfileFromDB(generateIcon, generateIndicators);
-            } else {
+            if (profileListFilled) {
                 //noinspection ForLoopReplaceableByForEach
                 for (Iterator<Profile> it = profileList.iterator(); it.hasNext(); ) {
                     Profile profile = it.next();
@@ -432,24 +494,21 @@ public class DataWrapper {
                         return profile;
                     }
                 }
-                // when profile not found, get profile from db
-                return getActivatedProfileFromDB(generateIcon, generateIndicators);
             }
+            return getActivatedProfileFromDB(generateIcon, generateIndicators);
         }
     }
 
     public Profile getActivatedProfile(List<Profile> profileList) {
-        if (profileList == null) {
-            return null;
-        } else {
+        if (profileList != null) {
             //noinspection ForLoopReplaceableByForEach
             for (Iterator<Profile> it = profileList.iterator(); it.hasNext();) {
                 Profile profile = it.next();
                 if (profile._checked)
                     return profile;
             }
-            return null;
         }
+        return null;
     }
 
     void setProfileActive(Profile profile)
@@ -458,36 +517,56 @@ public class DataWrapper {
             if (!profileListFilled)
                 return;
 
+            //PPApplication.logE("$$$ DataWrapper.setProfileActive", "xxx");
+
             //noinspection ForLoopReplaceableByForEach
             for (Iterator<Profile> it = profileList.iterator(); it.hasNext();) {
                 Profile _profile = it.next();
                 _profile._checked = false;
             }
 
-            if (profile != null)
+
+            if (profile != null) {
                 profile._checked = true;
+                //PPApplication.logE("DataWrapper.setProfileActive", "profile._name="+profile._name);
+//                PPApplication.logE("[FIFO_TEST] DataWrapper.setProfileActive", "profile._id="+profile._id);
+                PPApplication.setLastActivatedProfile(context, profile._id);
+            }
+            else {
+                //PPApplication.logE("DataWrapper.setProfileActive", "profile=null");
+//                PPApplication.logE("[FIFO_TEST] DataWrapper.setProfileActive", "profile._id=0");
+                PPApplication.setLastActivatedProfile(context, 0);
+            }
+
+            //PPApplication.logE("$$$ DataWrapper.setProfileActive", "PPApplication.prefLastActivatedProfile="+PPApplication.prefLastActivatedProfile);
         }
     }
 
-    void activateProfileFromEvent(long profile_id, /*boolean interactive,*/ boolean manual,
-                                         boolean merged)
+    void activateProfileFromEvent(long event_id, long profile_id, boolean manualActivation, boolean merged, boolean forRestartEvents)
     {
-        int startupSource = PPApplication.STARTUP_SOURCE_SERVICE;
-        if (manual)
-            startupSource = PPApplication.STARTUP_SOURCE_SERVICE_MANUAL;
+        if (event_id != 0) {
+            // save before activated profile into FIFO
+            Profile activatedProfile = getActivatedProfileFromDB(false, false);
+            if (activatedProfile != null) {
+                long profileId = activatedProfile._id;
+//                PPApplication.logE("[FIFO_TEST] DataWrapper.activateProfileFromEvent", "#### add profileId=" + profileId + " eventId="+event_id);
+                addProfileToFIFO(profileId, event_id);
+            }
+        }
+
+        int startupSource = PPApplication.STARTUP_SOURCE_EVENT;
+        if (manualActivation)
+            startupSource = PPApplication.STARTUP_SOURCE_EVENT_MANUAL;
         Profile profile = getProfileById(profile_id, false, false, merged);
-        if (Permissions.grantProfilePermissions(context, profile, merged, true,
-                /*false, monochrome, monochromeValue,*/
-                startupSource, /*interactive,*/ null, true)) {
-            _activateProfile(profile, merged, startupSource);
+        if (profile == null)
+            return;
+        //if (Permissions.grantProfilePermissions(context, profile, merged, true,
+        //        /*false, monochrome, monochromeValue,*/
+        //        startupSource, false,true, false)) {
+        if (!PhoneProfilesService.displayPreferencesErrorNotification(profile, null, context)) {
+            //PPApplication.logE("&&&&&&& DataWrapper.activateProfileFromEvent", "called is DataWrapper._activateProfile()");
+            _activateProfile(profile, merged, startupSource, forRestartEvents);
         }
-    }
-
-    void updateNotificationAndWidgets()
-    {
-        if (PhoneProfilesService.instance != null)
-            PhoneProfilesService.instance.showProfileNotification(this);
-        ActivateProfileHelper.updateGUI(context, true);
     }
 
     private Profile getProfileByIdFromDB(long id, boolean generateIcon, boolean generateIndicators, boolean merged)
@@ -496,7 +575,7 @@ public class DataWrapper {
         if (/*forGUI &&*/ (profile != null))
         {
             if (generateIcon)
-                profile.generateIconBitmap(context, monochrome, monochromeValue);
+                profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
             if (generateIndicators)
                 profile.generatePreferencesIndicator(context, monochrome, monochromeValue);
         }
@@ -537,6 +616,12 @@ public class DataWrapper {
             return;
 
         synchronized (profileList) {
+            // remove notifications about profile parameters errors
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+            notificationManager.cancel(
+                    PPApplication.DISPLAY_PREFERENCES_PROFILE_ERROR_NOTIFICATION_TAG+"_"+profile._id,
+                    PPApplication.PROFILE_ID_NOTIFICATION_ID + (int) profile._id);
+
             profileList.remove(profile);
         }
         synchronized (eventList) {
@@ -555,7 +640,7 @@ public class DataWrapper {
                     String[] splits = oldFkProfiles.split("\\|");
                     StringBuilder newFkProfiles = new StringBuilder();
                     for (String split : splits) {
-                        long fkProfile = Long.valueOf(split);
+                        long fkProfile = Long.parseLong(split);
                         if (fkProfile != profile._id) {
                             if (newFkProfiles.length() > 0)
                                 newFkProfiles.append("|");
@@ -567,18 +652,31 @@ public class DataWrapper {
             }
         }
         // unlink profile from Background profile
-        if (Long.valueOf(ApplicationPreferences.applicationBackgroundProfile(context)) == profile._id)
+        if (ApplicationPreferences.applicationDefaultProfile == profile._id)
         {
-            ApplicationPreferences.getSharedPreferences(context);
-            Editor editor = ApplicationPreferences.preferences.edit();
-            editor.putString(ApplicationPreferences.PREF_APPLICATION_BACKGROUND_PROFILE, String.valueOf(Profile.PROFILE_NO_ACTIVATE));
+            Editor editor = ApplicationPreferences.getEditor(context);
+            editor.putString(ApplicationPreferences.PREF_APPLICATION_DEFAULT_PROFILE, String.valueOf(Profile.PROFILE_NO_ACTIVATE));
             editor.apply();
+            ApplicationPreferences.applicationDefaultProfile(context);
         }
     }
 
     void deleteAllProfiles()
     {
         synchronized (profileList) {
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+            // remove notifications about profile parameters errors
+            //noinspection ForLoopReplaceableByForEach
+            for (Iterator<Profile> it = profileList.iterator(); it.hasNext(); ) {
+                Profile profile = it.next();
+                try {
+                    notificationManager.cancel(
+                            PPApplication.DISPLAY_PREFERENCES_PROFILE_ERROR_NOTIFICATION_TAG+"_"+profile._id,
+                            PPApplication.PROFILE_ID_NOTIFICATION_ID + (int) profile._id);
+                } catch (Exception e) {
+                    PPApplication.recordException(e);
+                }
+            }
             profileList.clear();
         }
         synchronized (eventList) {
@@ -593,20 +691,22 @@ public class DataWrapper {
             }
         }
         // unlink profiles from Background profile
-        ApplicationPreferences.getSharedPreferences(context);
-        Editor editor = ApplicationPreferences.preferences.edit();
-        editor.putString(ApplicationPreferences.PREF_APPLICATION_BACKGROUND_PROFILE, String.valueOf(Profile.PROFILE_NO_ACTIVATE));
+        Editor editor = ApplicationPreferences.getEditor(context);
+        editor.putString(ApplicationPreferences.PREF_APPLICATION_DEFAULT_PROFILE, String.valueOf(Profile.PROFILE_NO_ACTIVATE));
         editor.apply();
+        ApplicationPreferences.applicationDefaultProfile(context);
     }
 
-    void refreshProfileIcon(Profile profile, boolean generateIcon, boolean generateIndicators) {
+    void refreshProfileIcon(Profile profile,
+                            @SuppressWarnings("SameParameterValue") boolean generateIcon,
+                            boolean generateIndicators) {
         if (profile != null) {
             boolean isIconResourceID = profile.getIsIconResourceID();
             String iconIdentifier = profile.getIconIdentifier();
             DatabaseHandler.getInstance(context).getProfileIcon(profile);
             if (isIconResourceID && iconIdentifier.equals("ic_profile_default") && (!profile.getIsIconResourceID())) {
                 if (generateIcon)
-                    profile.generateIconBitmap(context, monochrome, monochromeValue);
+                    profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
                 if (generateIndicators)
                     profile.generatePreferencesIndicator(context, monochrome, monochromeValue);
             }
@@ -627,50 +727,64 @@ public class DataWrapper {
         useCustomColor = profile.getUseCustomColorForIcon();
 
         if (isIconResourceID) {
-            //noinspection ConstantConditions
             if (profile._iconBitmap != null)
                 profileBitmap = profile._iconBitmap;
             else {
-                int iconResource = context.getResources().getIdentifier(iconIdentifier, "drawable", context.getPackageName());
-                profileBitmap = BitmapFactory.decodeResource(context.getResources(), iconResource);
+                //int iconResource = context.getResources().getIdentifier(iconIdentifier, "drawable", context.PPApplication.PACKAGE_NAME);
+                int iconResource = Profile.getIconResource(iconIdentifier);
+                //profileBitmap = BitmapFactory.decodeResource(context.getResources(), iconResource);
+                profileBitmap = BitmapManipulator.getBitmapFromResource(iconResource, true, context);
             }
         } else {
-            Resources resources = context.getResources();
-            int height = (int) resources.getDimension(android.R.dimen.app_icon_size);
-            int width = (int) resources.getDimension(android.R.dimen.app_icon_size);
+            int height = GlobalGUIRoutines.dpToPx(GlobalGUIRoutines.ICON_SIZE_DP);
+            int width = GlobalGUIRoutines.dpToPx(GlobalGUIRoutines.ICON_SIZE_DP);
             //Log.d("---- ShortcutCreatorListFragment.generateIconBitmap","resampleBitmapUri");
-            profileBitmap = BitmapManipulator.resampleBitmapUri(iconIdentifier, width, height, true, context.getApplicationContext());
+            profileBitmap = BitmapManipulator.resampleBitmapUri(iconIdentifier, width, height, true, false, context.getApplicationContext());
             if (profileBitmap == null) {
                 int iconResource = R.drawable.ic_profile_default;
-                profileBitmap = BitmapFactory.decodeResource(context.getResources(), iconResource);
+                //profileBitmap = BitmapFactory.decodeResource(context.getResources(), iconResource);
+                profileBitmap = BitmapManipulator.getBitmapFromResource(iconResource, true, context);
             }
         }
 
-        if (ApplicationPreferences.applicationWidgetIconColor(context).equals("1")) {
-            int monochromeValue = 0xFF;
-            String applicationWidgetIconLightness = ApplicationPreferences.applicationWidgetIconLightness(context);
-            if (applicationWidgetIconLightness.equals("0")) monochromeValue = 0x00;
-            if (applicationWidgetIconLightness.equals("25")) monochromeValue = 0x40;
-            if (applicationWidgetIconLightness.equals("50")) monochromeValue = 0x80;
-            if (applicationWidgetIconLightness.equals("75")) monochromeValue = 0xC0;
-            if (applicationWidgetIconLightness.equals("100")) monochromeValue = 0xFF;
-
+        if (ApplicationPreferences.applicationWidgetIconColor.equals("1")) {
             if (isIconResourceID || useCustomColor) {
                 // icon is from resource or colored by custom color
+                int monochromeValue = 0xFF;
+                String applicationWidgetIconLightness = ApplicationPreferences.applicationWidgetIconLightness;
+                if (applicationWidgetIconLightness.equals("0")) monochromeValue = 0x00;
+                if (applicationWidgetIconLightness.equals("25")) monochromeValue = 0x40;
+                if (applicationWidgetIconLightness.equals("50")) monochromeValue = 0x80;
+                if (applicationWidgetIconLightness.equals("75")) monochromeValue = 0xC0;
+                //if (applicationWidgetIconLightness.equals("100")) monochromeValue = 0xFF;
                 profileBitmap = BitmapManipulator.monochromeBitmap(profileBitmap, monochromeValue/*, getActivity().getBaseContext()*/);
-            } else
+            } else {
+                float monochromeValue = 255f;
+                String applicationWidgetIconLightness = ApplicationPreferences.applicationWidgetIconLightness;
+                if (applicationWidgetIconLightness.equals("0")) monochromeValue = -255f;
+                if (applicationWidgetIconLightness.equals("25")) monochromeValue = -128f;
+                if (applicationWidgetIconLightness.equals("50")) monochromeValue = 0f;
+                if (applicationWidgetIconLightness.equals("75")) monochromeValue = 128f;
+                //if (applicationWidgetIconLightness.equals("100")) monochromeValue = 255f;
                 profileBitmap = BitmapManipulator.grayScaleBitmap(profileBitmap);
+                profileBitmap = BitmapManipulator.setBitmapBrightness(profileBitmap, monochromeValue);
+            }
         }
 
         if (restartEvents) {
-            shortcutIntent = new Intent(context.getApplicationContext(), ActionForExternalApplicationActivity.class);
-            shortcutIntent.setAction(ActionForExternalApplicationActivity.ACTION_RESTART_EVENTS);
+            /*shortcutIntent = new Intent(context.getApplicationContext(), ActionForExternalApplicationActivity.class);
+            shortcutIntent.setAction(ActionForExternalApplicationActivity.ACTION_RESTART_EVENTS);*/
+            shortcutIntent = new Intent(context.getApplicationContext(), BackgroundActivateProfileActivity.class);
+            shortcutIntent.setAction(Intent.ACTION_MAIN);
+            shortcutIntent.addCategory(Intent.ACTION_DEFAULT);
+            shortcutIntent.putExtra(PPApplication.EXTRA_STARTUP_SOURCE, PPApplication.STARTUP_SOURCE_SHORTCUT);
+            shortcutIntent.putExtra(PPApplication.EXTRA_PROFILE_ID, Profile.RESTART_EVENTS_PROFILE_ID);
         }
         else {
             shortcutIntent = new Intent(context.getApplicationContext(), BackgroundActivateProfileActivity.class);
             shortcutIntent.setAction(Intent.ACTION_MAIN);
+            shortcutIntent.addCategory(Intent.ACTION_DEFAULT);
             shortcutIntent.putExtra(PPApplication.EXTRA_STARTUP_SOURCE, PPApplication.STARTUP_SOURCE_SHORTCUT);
-            //noinspection ConstantConditions
             shortcutIntent.putExtra(PPApplication.EXTRA_PROFILE_ID, profile._id);
         }
 
@@ -681,15 +795,16 @@ public class DataWrapper {
         if (restartEvents) {
             id = "restart_events";
             profileName = context.getString(R.string.menu_restart_events);
-            longLabel = profileName;
         }
         else {
             id = "profile_" + profile._id;
             profileName = profile._name;
-            longLabel = /*context.getString(R.string.shortcut_activate_profile) + */profileName;
         }
+        longLabel = profileName;
         if (profileName.isEmpty())
             profileName = " ";
+        if (longLabel.isEmpty())
+            longLabel = " ";
 
         return new ShortcutInfo.Builder(context, id)
                 .setShortLabel(profileName)
@@ -701,43 +816,92 @@ public class DataWrapper {
 
     void setDynamicLauncherShortcuts() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
-            ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+            try {
+                ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
 
-            if (shortcutManager != null) {
-                final int limit = 4;
+                if (shortcutManager != null) {
+                    final int limit = 4;
 
-                List<Profile> countedProfiles = DatabaseHandler.getInstance(context).getProfilesForDynamicShortcuts(true, limit);
-                List<Profile> notCountedProfiles = DatabaseHandler.getInstance(context).getProfilesForDynamicShortcuts(false, limit);
+                    List<Profile> countedProfiles = DatabaseHandler.getInstance(context).getProfilesForDynamicShortcuts(true/*, limit*/);
+                    List<Profile> notCountedProfiles = DatabaseHandler.getInstance(context).getProfilesForDynamicShortcuts(false/*, limit*/);
 
-                ArrayList<ShortcutInfo> shortcuts = new ArrayList<>();
+                    ArrayList<ShortcutInfo> shortcuts = new ArrayList<>();
 
-                Profile _profile = DataWrapper.getNonInitializedProfile(context.getString(R.string.menu_restart_events),
-                        context.getResources().getResourceEntryName(R.drawable.ic_action_events_restart_color)+"|1|0|0", 0);
-                _profile.generateIconBitmap(context, monochrome, monochromeValue);
-                shortcuts.add(createShortcutInfo(_profile, true));
+                    Profile _profile = DataWrapper.getNonInitializedProfile(context.getString(R.string.menu_restart_events), "ic_list_item_events_restart_color|1|0|0", 0);
+                    _profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
+                    // first profile is restart events
+                    shortcuts.add(createShortcutInfo(_profile, true));
 
-                for (Profile profile : countedProfiles) {
-                    PPApplication.logE("DataWrapper.setDynamicLauncherShortcuts", "countedProfile=" + profile._name);
-                    profile.generateIconBitmap(context, monochrome, monochromeValue);
-                    shortcuts.add(createShortcutInfo(profile, false));
-                }
-
-                int shortcutsCount = countedProfiles.size();
-                if (shortcutsCount < limit) {
-                    for (Profile profile : notCountedProfiles) {
-                        PPApplication.logE("DataWrapper.setDynamicLauncherShortcuts", "notCountedProfile=" + profile._name);
-                        profile.generateIconBitmap(context, monochrome, monochromeValue);
+                    for (Profile profile : countedProfiles) {
+                        //PPApplication.logE("DataWrapper.setDynamicLauncherShortcuts", "countedProfile=" + profile._name);
+                        profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
                         shortcuts.add(createShortcutInfo(profile, false));
-
-                        ++shortcutsCount;
-                        if (shortcutsCount == limit)
-                            break;
                     }
-                }
 
-                shortcutManager.setDynamicShortcuts(shortcuts);
+                    int shortcutsCount = countedProfiles.size();
+                    if (shortcutsCount < limit) {
+                        for (Profile profile : notCountedProfiles) {
+                            //PPApplication.logE("DataWrapper.setDynamicLauncherShortcuts", "notCountedProfile=" + profile._name);
+                            profile.generateIconBitmap(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
+                            shortcuts.add(createShortcutInfo(profile, false));
+
+                            ++shortcutsCount;
+                            if (shortcutsCount == limit)
+                                break;
+                        }
+                    }
+
+                    if (shortcuts.size() > 0)
+                        shortcutManager.setDynamicShortcuts(shortcuts);
+                }
+            } catch (Exception e) {
+//                java.lang.IllegalStateException: Launcher activity not found for package sk.henrichg.phoneprofilesplus
+//                at android.os.Parcel.createException(Parcel.java:2096)
+//                at android.os.Parcel.readException(Parcel.java:2056)
+//                at android.os.Parcel.readException(Parcel.java:2004)
+//                at android.content.pm.IShortcutService$Stub$Proxy.setDynamicShortcuts(IShortcutService.java:830)
+//                at android.content.pm.ShortcutManager.setDynamicShortcuts(ShortcutManager.java:112)
+//                at sk.henrichg.phoneprofilesplus.DataWrapper.setDynamicLauncherShortcuts(DataWrapper.java:818)
+//                - Generated, when device is rooted?
+
+                //Log.e("DataWrapper.setDynamicLauncherShortcuts", Log.getStackTraceString(e));
+                PPApplication.recordException(e);
             }
         }
+    }
+
+    void setDynamicLauncherShortcutsFromMainThread()
+    {
+        //PPApplication.logE("DataWrapper.setDynamicLauncherShortcutsFromMainThread", "start");
+        final DataWrapper dataWrapper = copyDataWrapper();
+
+        PPApplication.startHandlerThread(/*"DataWrapper.setDynamicLauncherShortcutsFromMainThread"*/);
+        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
+        handler.post(() -> {
+//                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.setDynamicLauncherShortcutsFromMainThread");
+
+            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = null;
+            try {
+                if (powerManager != null) {
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_setDynamicLauncherShortcutsFromMainThread");
+                    wakeLock.acquire(10 * 60 * 1000);
+                }
+
+                dataWrapper.setDynamicLauncherShortcuts();
+
+                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.setDynamicLauncherShortcutsFromMainThread");
+            } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                PPApplication.recordException(e);
+            } finally {
+                if ((wakeLock != null) && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
     }
 
 //---------------------------------------------------
@@ -776,55 +940,19 @@ public class DataWrapper {
         }
     }
 
-    void invalidateEventList()
+    /*void invalidateEventList()
     {
         synchronized (eventList) {
             if (eventListFilled)
                 eventList.clear();
             eventListFilled = false;
         }
-    }
-
-    void sortEventsByStartOrderAsc()
-    {
-        class PriorityComparator implements Comparator<Event> {
-            public int compare(Event lhs, Event rhs) {
-                int res = 0;
-                if ((lhs != null) && (rhs != null))
-                    res =  lhs._startOrder - rhs._startOrder;
-                return res;
-            }
-        }
-
-        synchronized (eventList) {
-            fillEventList();
-            Collections.sort(eventList, new PriorityComparator());
-        }
-    }
-
-    void sortEventsByStartOrderDesc()
-    {
-        class PriorityComparator implements Comparator<Event> {
-            public int compare(Event lhs, Event rhs) {
-                int res = 0;
-                if ((lhs != null) && (rhs != null))
-                    res =  rhs._startOrder - lhs._startOrder;
-                return res;
-            }
-        }
-
-        synchronized (eventList) {
-            fillEventList();
-            Collections.sort(eventList, new PriorityComparator());
-        }
-    }
+    }*/
 
     Event getEventById(long id)
     {
         synchronized (eventList) {
-            if (!eventListFilled) {
-                return DatabaseHandler.getInstance(context).getEvent(id);
-            } else {
+            if (eventListFilled) {
                 //noinspection ForLoopReplaceableByForEach
                 for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
                     Event event = it.next();
@@ -833,8 +961,30 @@ public class DataWrapper {
                 }
 
                 // when filter is set and profile not found, get profile from db
-                return DatabaseHandler.getInstance(context).getEvent(id);
             }
+            return DatabaseHandler.getInstance(context).getEvent(id);
+        }
+    }
+
+    long getEventIdByName(String name, @SuppressWarnings("SameParameterValue") boolean fromDB)
+    {
+        String _name = name.trim();
+        if ((!eventListFilled) || fromDB)
+        {
+            return DatabaseHandler.getInstance(context).getEventIdByName(_name);
+        }
+        else
+        {
+            synchronized (eventList) {
+                Event event;
+                //noinspection ForLoopReplaceableByForEach
+                for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
+                    event = it.next();
+                    if (event._name.trim().equals(_name))
+                        return event._id;
+                }
+            }
+            return 0;
         }
     }
 
@@ -843,60 +993,68 @@ public class DataWrapper {
         if (event != null)
         {
             Event origEvent = getEventById(event._id);
-            origEvent.copyEvent(event);
+            if (origEvent != null)
+                origEvent.copyEvent(event);
         }
     }
 
     // stops all events associated with profile
     private void stopEventsForProfile(Profile profile, boolean alsoUnlink/*, boolean saveEventStatus*/)
     {
-        List<EventTimeline> eventTimelineList = getEventTimelineList();
+        synchronized (PPApplication.eventsHandlerMutex) {
+            getEventTimelineList(true);
 
-        synchronized (eventList) {
-            fillEventList();
-            //noinspection ForLoopReplaceableByForEach
-            for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
-                Event event = it.next();
-                //if ((event.getStatusFromDB(this) == Event.ESTATUS_RUNNING) &&
-                //	(event._fkProfileStart == profile._id))
-                if (event._fkProfileStart == profile._id)
-                    event.stopEvent(this, eventTimelineList, false, true, true/*saveEventStatus*/, false);
+            synchronized (eventList) {
+                fillEventList();
+                //noinspection ForLoopReplaceableByForEach
+                for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
+                    Event event = it.next();
+                    //if ((event.getStatusFromDB(this) == Event.ESTATUS_RUNNING) &&
+                    //	(event._fkProfileStart == profile._id))
+                    if (event._fkProfileStart == profile._id)
+                        event.stopEvent(this, false, true, true/*saveEventStatus*/, false, true);
+                }
+                if (alsoUnlink) {
+                    unlinkEventsFromProfile(profile);
+                    DatabaseHandler.getInstance(context).unlinkEventsFromProfile(profile);
+                }
             }
         }
-        if (alsoUnlink) {
-            unlinkEventsFromProfile(profile);
-            DatabaseHandler.getInstance(context).unlinkEventsFromProfile(profile);
-        }
-        PPApplication.logE("$$$ restartEvents", "from DataWrapper.stopEventsForProfile");
-        restartEvents(false, true/*, false*/);
+        //PPApplication.logE("$$$ restartEvents", "from DataWrapper.stopEventsForProfile");
+        //restartEvents(false, true, true, true, true);
+//        PPApplication.logE("[APP_START] DataWrapper.stopEventsForProfile", "xxx");
+        restartEventsWithRescan(true, false, true, false, true, false);
     }
 
-    void stopEventsForProfileFromMainThread(final Profile profile, final boolean alsoUnlink) {
-        final DataWrapper dataWrapper = new DataWrapper(context, monochrome, monochromeValue);
-        synchronized (profileList) {
-            dataWrapper.copyProfileList(this);
-        }
-        synchronized (eventList) {
-            dataWrapper.copyEventList(this);
-        }
+    void stopEventsForProfileFromMainThread(final Profile profile,
+                                            @SuppressWarnings("SameParameterValue") final boolean alsoUnlink) {
+        final DataWrapper dataWrapper = copyDataWrapper();
 
-        PPApplication.startHandlerThread("DataWrapper.stopEventsForProfileFromMainThread");
+        PPApplication.startHandlerThread(/*"DataWrapper.stopEventsForProfileFromMainThread"*/);
         final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
+        handler.post(() -> {
+//                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.stopEventsForProfileFromMainThread");
 
-                PowerManager powerManager = (PowerManager) context.getSystemService(POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
+            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = null;
+            try {
                 if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DataWrapper.stopEventsForProfileFromMainThread");
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_stopEventsForProfileFromMainThread");
                     wakeLock.acquire(10 * 60 * 1000);
                 }
 
                 dataWrapper.stopEventsForProfile(profile, alsoUnlink);
 
-                if ((wakeLock != null) && wakeLock.isHeld())
-                    wakeLock.release();
+                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.stopEventsForProfileFromMainThread");
+            } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                PPApplication.recordException(e);
+            } finally {
+                if ((wakeLock != null) && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Exception ignored) {}
+                }
             }
         });
     }
@@ -904,133 +1062,133 @@ public class DataWrapper {
     // pauses all events
     void pauseAllEvents(boolean noSetSystemEvent, boolean blockEvents/*, boolean activateReturnProfile*/)
     {
-        List<EventTimeline> eventTimelineList = getEventTimelineList();
+        // blockEvents == true -> manual profile activation is set
+        Event.setEventsBlocked(context, blockEvents);
+
+        getEventTimelineList(true);
 
         synchronized (eventList) {
-            PPApplication.logE("DataWrapper.pauseAllEvents", "eventListFilled="+eventListFilled);
+            //PPApplication.logE("DataWrapper.pauseAllEvents", "eventListFilled="+eventListFilled);
             fillEventList();
             //noinspection ForLoopReplaceableByForEach
             for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
                 Event event = it.next();
                 if (event != null) {
-                    int status = event.getStatusFromDB(this);
-                    PPApplication.logE("DataWrapper.pauseAllEvents", "event._name=" + event._name);
-                    PPApplication.logE("DataWrapper.pauseAllEvents", "status=" + status);
+                    int status = event.getStatusFromDB(context);
+                    /*if (PPApplication.logEnabled()) {
+                        PPApplication.logE("DataWrapper.pauseAllEvents", "event._name=" + event._name);
+                        PPApplication.logE("DataWrapper.pauseAllEvents", "status=" + status);
+                        PPApplication.logE("DataWrapper.pauseAllEvents", "event._forceRun=" + event._forceRun);
+                        PPApplication.logE("DataWrapper.pauseAllEvents", "event._noPauseByManualActivation=" + event._noPauseByManualActivation);
+                    }*/
 
                     if (status == Event.ESTATUS_RUNNING) {
-                        if (!(event._forceRun && event._noPauseByManualActivation)) {
-                            event.pauseEvent(this, eventTimelineList, false, true, noSetSystemEvent, true, null, false);
+                        if (!(event._ignoreManualActivation && event._noPauseByManualActivation)) {
+                            event.pauseEvent(this, false, true, noSetSystemEvent, true, null, false, false, true);
                         }
                     }
 
                     setEventBlocked(event, false);
-                    if (blockEvents && (status == Event.ESTATUS_RUNNING) && event._forceRun) {
+                    if (blockEvents && (status == Event.ESTATUS_RUNNING) && event._ignoreManualActivation) {
                         // block only running forceRun events
-                        if (!event._noPauseByManualActivation)
+                        if (!event._noPauseByManualActivation) // do not pause event, even when is running
                             setEventBlocked(event, true);
                     }
 
-                    if (!(event._forceRun && event._noPauseByManualActivation)) {
+                    if (!(event._ignoreManualActivation && event._noPauseByManualActivation)) {
                         // for "push" events, set startTime to 0
-                        event._eventPreferencesSMS._startTime = 0;
-                        DatabaseHandler.getInstance(context).updateSMSStartTime(event);
-                        //event._eventPreferencesNotification._startTime = 0;
-                        //DatabaseHandler.getInstance(context).updateNotificationStartTime(event);
-                        event._eventPreferencesNFC._startTime = 0;
-                        DatabaseHandler.getInstance(context).updateNFCStartTime(event);
-                        event._eventPreferencesCall._startTime = 0;
-                        DatabaseHandler.getInstance(context).updateCallStartTime(event);
+                        clearSensorsStartTime(event, true);
                     }
                 }
             }
         }
-
-        // blockEvents == true -> manual profile activation is set
-        Event.setEventsBlocked(context, blockEvents);
     }
 
-    private void pauseAllEventsFromMainThread(final boolean noSetSystemEvent, final boolean blockEvents) {
-        final DataWrapper dataWrapper = new DataWrapper(context, monochrome, monochromeValue);
-        synchronized (profileList) {
-            dataWrapper.copyProfileList(this);
-        }
-        synchronized (eventList) {
-            dataWrapper.copyEventList(this);
-        }
+    private void pauseAllEventsForGlobalStopEvents() {
+        final DataWrapper dataWrapper = copyDataWrapper();
 
-        PPApplication.startHandlerThread("DataWrapper.pauseAllEventsFromMainThread");
+        PPApplication.startHandlerThread(/*"DataWrapper.pauseAllEventsForGlobalStopEvents"*/);
         final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
+        handler.post(() -> {
+//                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.pauseAllEventsForGlobalStopEvents");
 
-                PowerManager powerManager = (PowerManager) context.getSystemService(POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
+            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = null;
+            try {
                 if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DataWrapper.pauseAllEventsFromMainThread");
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_pauseAllEventsForGlobalStopEvents");
                     wakeLock.acquire(10 * 60 * 1000);
                 }
 
-                dataWrapper.pauseAllEvents(noSetSystemEvent, blockEvents);
+                synchronized (PPApplication.eventsHandlerMutex) {
+                    dataWrapper.pauseAllEvents(true, false);
+                }
 
-                if ((wakeLock != null) && wakeLock.isHeld())
-                    wakeLock.release();
+                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.pauseAllEventsForGlobalStopEvents");
+            } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                PPApplication.recordException(e);
+            } finally {
+                if ((wakeLock != null) && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Exception ignored) {}
+                }
             }
         });
     }
 
     // stops all events
-    void stopAllEvents(boolean saveEventStatus, boolean alsoDelete/*, boolean activateReturnProfile*/)
+    void stopAllEvents(boolean saveEventStatus, boolean alsoDelete, boolean log, boolean updateGUI)
     {
-        List<EventTimeline> eventTimelineList = getEventTimelineList();
-
-        for (int i = eventTimelineList.size()-1; i >= 0; i--)
-        {
-            EventTimeline eventTimeline = eventTimelineList.get(i);
-            if (eventTimeline != null)
-            {
-                long eventId = eventTimeline._fkEvent;
-                Event event = getEventById(eventId);
-                if (event != null)
-                {
-                //if (event.getStatusFromDB(this) != Event.ESTATUS_STOP)
-                    event.stopEvent(this, eventTimelineList, false/*activateReturnProfile*/,
-                            true, saveEventStatus, false);
+        synchronized (PPApplication.eventsHandlerMutex) {
+            getEventTimelineList(true);
+            synchronized (eventList) {
+                fillEventList();
+                //noinspection ForLoopReplaceableByForEach
+                for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
+                    Event event = it.next();
+                    //if (event.getStatusFromDB(this) != Event.ESTATUS_STOP)
+                    event.stopEvent(this, false/*activateReturnProfile*/,
+                            true, saveEventStatus, log, updateGUI);
                 }
             }
-        }
-        if (alsoDelete) {
-            unlinkAllEvents();
-            DatabaseHandler.getInstance(context).deleteAllEvents();
+            if (alsoDelete) {
+                unlinkAllEvents();
+                DatabaseHandler.getInstance(context).deleteAllEvents();
+            }
         }
     }
 
-    void stopAllEventsFromMainThread(final boolean saveEventStatus, final boolean alsoDelete) {
-        final DataWrapper dataWrapper = new DataWrapper(context, monochrome, monochromeValue);
-        synchronized (profileList) {
-            dataWrapper.copyProfileList(this);
-        }
-        synchronized (eventList) {
-            dataWrapper.copyEventList(this);
-        }
+    void stopAllEventsFromMainThread(@SuppressWarnings("SameParameterValue") final boolean saveEventStatus,
+                                     final boolean alsoDelete) {
+        final DataWrapper dataWrapper = copyDataWrapper();
 
-        PPApplication.startHandlerThread("DataWrapper.stopAllEventsFromMainThread");
+        PPApplication.startHandlerThread(/*"DataWrapper.stopAllEventsFromMainThread"*/);
         final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
+        handler.post(() -> {
+//                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.stopAllEventsFromMainThread");
 
-                PowerManager powerManager = (PowerManager) context.getSystemService(POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
+            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = null;
+            try {
                 if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DataWrapper.stopAllEventsFromMainThread");
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_stopAllEventsFromMainThread");
                     wakeLock.acquire(10 * 60 * 1000);
                 }
 
-                dataWrapper.stopAllEvents(saveEventStatus, alsoDelete);
+                dataWrapper.stopAllEvents(saveEventStatus, alsoDelete, true, true);
 
-                if ((wakeLock != null) && wakeLock.isHeld())
-                    wakeLock.release();
+                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.stopAllEventsFromMainThread");
+            } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                PPApplication.recordException(e);
+            } finally {
+                if ((wakeLock != null) && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Exception ignored) {}
+                }
             }
         });
     }
@@ -1065,48 +1223,68 @@ public class DataWrapper {
 
     void activateProfileOnBoot()
     {
-        if (ApplicationPreferences.applicationActivate(context))
+        if (ApplicationPreferences.applicationActivate)
         {
-            Profile profile = DatabaseHandler.getInstance(context).getActivatedProfile();
+            /*Profile profile = DatabaseHandler.getInstance(context).getActivatedProfile();
             long profileId;
             if (profile != null)
                 profileId = profile._id;
             else
             {
-                profileId = Long.valueOf(ApplicationPreferences.applicationBackgroundProfile(context));
+                profileId = Long.valueOf(ApplicationPreferences.applicationDefaultProfile(context));
                 if (profileId == Profile.PROFILE_NO_ACTIVATE)
                     profileId = 0;
             }
-            activateProfile(profileId, PPApplication.STARTUP_SOURCE_BOOT, null/*, ""*/);
+            */
+
+            long profileId = PPApplication.prefLastActivatedProfile;
+            if (profileId == 0) {
+
+//                PPApplication.logE("[APP_START] DataWrapper.activateProfileOnBoot", "PPApplication.applicationFullyStarted="+PPApplication.applicationFullyStarted);
+                profileId = ApplicationPreferences.getApplicationDefaultProfileOnBoot();
+
+                if (profileId == Profile.PROFILE_NO_ACTIVATE)
+                    profileId = 0;
+            }
+
+            activateProfile(profileId, PPApplication.STARTUP_SOURCE_BOOT, null, true);
         }
         else
-            activateProfile(0, PPApplication.STARTUP_SOURCE_BOOT, null/*, ""*/);
+            activateProfile(0, PPApplication.STARTUP_SOURCE_BOOT, null, true);
     }
 
-    private void startEventsOnBoot(boolean startedFromService)
+    private void startEventsOnBoot(boolean startedFromService, boolean useHandler)
     {
+//        PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "START");
         if (startedFromService) {
-            if (ApplicationPreferences.applicationActivate(context) &&
-                    ApplicationPreferences.applicationStartEvents(context)) {
-                restartEvents(false, false/*, false*/);
+            if (ApplicationPreferences.applicationStartEvents) {
+                //restartEvents(false, false, true, false, useHandler);
+//                PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "(1)");
+                restartEventsWithRescan(true, false, useHandler, false, false, false);
+//                restartEventsWithDelay(5, true, false, true, PPApplication.ALTYPE_UNDEFINED);
             }
             else {
                 Event.setGlobalEventsRunning(context, false);
+//                PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "PPApplication.setApplicationFullyStarted");
+                PPApplication.setApplicationFullyStarted(context);
                 activateProfileOnBoot();
             }
         }
         else {
-            restartEvents(false, false/*, false*/);
+            //restartEvents(false, false, true, false, useHandler);
+//            PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "(2)");
+            restartEventsWithRescan(true, false, useHandler, false, false, false);
+//            restartEventsWithDelay(5, true, false, true, PPApplication.ALTYPE_UNDEFINED);
         }
     }
 
     // this is called in boot or first start application
-    void firstStartEvents(boolean startedFromService)
+    void firstStartEvents(boolean startedFromService, boolean useHandler)
     {
         PPApplication.logE("DataWrapper.firstStartEvents", "startedFromService="+startedFromService);
 
-        if (startedFromService)
-            invalidateEventList();  // force load form db
+        //if (startedFromService)
+            //invalidateEventList();  // force load form db
 
         if (!startedFromService) {
             Event.setEventsBlocked(context, false);
@@ -1122,21 +1300,33 @@ public class DataWrapper {
             Event.setForceRunEventRunning(context, false);
         }
 
+        synchronized (eventList) {
+            //noinspection ForLoopReplaceableByForEach
+            for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
+                Event event = it.next();
+                if (event != null) {
+                    event.setSensorsWaiting();
+                    DatabaseHandler.getInstance(context).updateAllEventSensorsPassed(event);
+                }
+            }
+        }
+
         resetAllEventsInDelayStart(true);
         resetAllEventsInDelayEnd(true);
 
-        if (!getIsManualProfileActivation()) {
+        if (!getIsManualProfileActivation(false, context)) {
             PPApplication.logE("DataWrapper.firstStartEvents", "no manual profile activation, restart events");
-            startEventsOnBoot(startedFromService);
         }
         else
         {
             PPApplication.logE("DataWrapper.firstStartEvents", "manual profile activation, activate profile");
+
             activateProfileOnBoot();
         }
+        startEventsOnBoot(startedFromService, useHandler);
     }
 
-    Event getNonInitializedEvent(String name, int startOrder)
+    static Event getNonInitializedEvent(String name, int startOrder)
     {
         return new Event(name,
                 startOrder,
@@ -1159,15 +1349,20 @@ public class DataWrapper {
                 false,
                 false,
                 false,
-                15
-         );
+                15,
+                "",
+                false,
+                //0*
+                false
+                );
     }
 
-    private long getProfileIdByName(String name)
+    long getProfileIdByName(String name, boolean fromDB)
     {
-        if (!profileListFilled)
+        String _name = name.trim();
+        if ((!profileListFilled) || fromDB)
         {
-            return DatabaseHandler.getInstance(context).getProfileIdByName(name);
+            return DatabaseHandler.getInstance(context).getProfileIdByName(_name);
         }
         else
         {
@@ -1176,7 +1371,7 @@ public class DataWrapper {
                 //noinspection ForLoopReplaceableByForEach
                 for (Iterator<Profile> it = profileList.iterator(); it.hasNext(); ) {
                     profile = it.next();
-                    if (profile._name.equals(name))
+                    if (profile._name.trim().equals(_name))
                         return profile._id;
                 }
             }
@@ -1184,13 +1379,15 @@ public class DataWrapper {
         }
     }
 
-    Event getPredefinedEvent(int index, boolean saveToDB) {
+    Event getPredefinedEvent(int index, boolean saveToDB, Context baseContext) {
         Event event;
 
         switch (index) {
             case 0:
-                event = getNonInitializedEvent(context.getString(R.string.default_event_name_during_the_week), 5);
-                event._fkProfileStart = getProfileIdByName(context.getString(R.string.default_profile_name_home));
+                event = getNonInitializedEvent(baseContext.getString(R.string.default_event_name_during_the_week), index+1);
+                event._fkProfileStart = getProfileIdByName(baseContext.getString(R.string.default_profile_name_home), false);
+                //if (event._fkProfileStart == 0)
+                //    event._fkProfileStart = getPredefinedProfile(0, true, baseContext)._id;
                 //event._undoneProfile = false;
                 event._atEndDo = Event.EATENDDO_NONE;
                 event._eventPreferencesTime._enabled = true;
@@ -1199,25 +1396,31 @@ public class DataWrapper {
                 event._eventPreferencesTime._wednesday = true;
                 event._eventPreferencesTime._thursday = true;
                 event._eventPreferencesTime._friday = true;
+                event._eventPreferencesTime._timeType = EventPreferencesTime.TIME_TYPE_EXACT;
                 event._eventPreferencesTime._startTime = 8 * 60;
                 event._eventPreferencesTime._endTime = 23 * 60;
                 //event._eventPreferencesTime._useEndTime = true;
                 break;
             case 1:
-                event = getNonInitializedEvent(context.getString(R.string.default_event_name_weekend), 5);
-                event._fkProfileStart = getProfileIdByName(context.getString(R.string.default_profile_name_home));
+                event = getNonInitializedEvent(baseContext.getString(R.string.default_event_name_weekend), index+1);
+                event._fkProfileStart = getProfileIdByName(baseContext.getString(R.string.default_profile_name_home), false);
+                //if (event._fkProfileStart == 0)
+                //    event._fkProfileStart = getPredefinedProfile(0, true, baseContext)._id;
                 //event._undoneProfile = false;
                 event._atEndDo = Event.EATENDDO_NONE;
                 event._eventPreferencesTime._enabled = true;
                 event._eventPreferencesTime._saturday = true;
                 event._eventPreferencesTime._sunday = true;
+                event._eventPreferencesTime._timeType = EventPreferencesTime.TIME_TYPE_EXACT;
                 event._eventPreferencesTime._startTime = 8 * 60;
                 event._eventPreferencesTime._endTime = 23 * 60;
                 //event._eventPreferencesTime._useEndTime = true;
                 break;
             case 2:
-                event = getNonInitializedEvent(context.getString(R.string.default_event_name_during_the_work), 8);
-                event._fkProfileStart = getProfileIdByName(context.getString(R.string.default_profile_name_work));
+                event = getNonInitializedEvent(baseContext.getString(R.string.default_event_name_during_the_work), index+1);
+                event._fkProfileStart = getProfileIdByName(baseContext.getString(R.string.default_profile_name_work), false);
+                //if (event._fkProfileStart == 0)
+                //    event._fkProfileStart = getPredefinedProfile(2, true, baseContext)._id;
                 //event._undoneProfile = true;
                 event._atEndDo = Event.EATENDDO_NONE;
                 event._priority = Event.EPRIORITY_HIGHER;
@@ -1227,13 +1430,16 @@ public class DataWrapper {
                 event._eventPreferencesTime._wednesday = true;
                 event._eventPreferencesTime._thursday = true;
                 event._eventPreferencesTime._friday = true;
+                event._eventPreferencesTime._timeType = EventPreferencesTime.TIME_TYPE_EXACT;
                 event._eventPreferencesTime._startTime = 9 * 60 + 30;
                 event._eventPreferencesTime._endTime = 17 * 60 + 30;
                 //event._eventPreferencesTime._useEndTime = true;
                 break;
             case 3:
-                event = getNonInitializedEvent(context.getString(R.string.default_event_name_overnight), 5);
-                event._fkProfileStart = getProfileIdByName(context.getString(R.string.default_profile_name_sleep));
+                event = getNonInitializedEvent(baseContext.getString(R.string.default_event_name_overnight), index+1);
+                event._fkProfileStart = getProfileIdByName(baseContext.getString(R.string.default_profile_name_sleep), false);
+                //if (event._fkProfileStart == 0)
+                //    event._fkProfileStart = getPredefinedProfile(4, true, baseContext)._id;
                 //event._undoneProfile = false;
                 event._atEndDo = Event.EATENDDO_UNDONE_PROFILE;
                 event._eventPreferencesTime._enabled = true;
@@ -1244,17 +1450,20 @@ public class DataWrapper {
                 event._eventPreferencesTime._friday = true;
                 event._eventPreferencesTime._saturday = true;
                 event._eventPreferencesTime._sunday = true;
+                event._eventPreferencesTime._timeType = EventPreferencesTime.TIME_TYPE_EXACT;
                 event._eventPreferencesTime._startTime = 23 * 60;
                 event._eventPreferencesTime._endTime = 8 * 60;
                 //event._eventPreferencesTime._useEndTime = true;
                 break;
             case 4:
-                event = getNonInitializedEvent(context.getString(R.string.default_event_name_night_call), 10);
-                event._fkProfileStart = getProfileIdByName(context.getString(R.string.default_profile_name_home));
+                event = getNonInitializedEvent(baseContext.getString(R.string.default_event_name_night_call), index+1);
+                event._fkProfileStart = getProfileIdByName(baseContext.getString(R.string.default_profile_name_home), false);
+                //if (event._fkProfileStart == 0)
+                //    event._fkProfileStart = getPredefinedProfile(0, true, baseContext)._id;
                 //event._undoneProfile = false;
                 event._atEndDo = Event.EATENDDO_UNDONE_PROFILE;
                 event._priority = Event.EPRIORITY_HIGHEST;
-                event._forceRun = true;
+                event._ignoreManualActivation = true;
                 event._noPauseByManualActivation = false;
                 event._eventPreferencesTime._enabled = true;
                 event._eventPreferencesTime._monday = true;
@@ -1264,6 +1473,7 @@ public class DataWrapper {
                 event._eventPreferencesTime._friday = true;
                 event._eventPreferencesTime._saturday = true;
                 event._eventPreferencesTime._sunday = true;
+                event._eventPreferencesTime._timeType = EventPreferencesTime.TIME_TYPE_EXACT;
                 event._eventPreferencesTime._startTime = 23 * 60;
                 event._eventPreferencesTime._endTime = 8 * 60;
                 //event._eventPreferencesTime._useEndTime = true;
@@ -1272,25 +1482,31 @@ public class DataWrapper {
                 event._eventPreferencesCall._contactListType = EventPreferencesCall.CONTACT_LIST_TYPE_WHITE_LIST;
                 break;
             case 5:
-                event = getNonInitializedEvent(context.getString(R.string.default_event_name_low_battery), 10);
-                event._fkProfileStart = getProfileIdByName(context.getString(R.string.default_profile_name_battery_low));
+                event = getNonInitializedEvent(baseContext.getString(R.string.default_event_name_low_battery), index+1);
+                event._fkProfileStart = getProfileIdByName(baseContext.getString(R.string.default_profile_name_battery_low), false);
+                //if (event._fkProfileStart == 0)
+                //    event._fkProfileStart = getPredefinedProfile(5, true, baseContext)._id;
+                event._fkProfileEnd = getProfileIdByName(baseContext.getString(R.string.default_profile_name_battery_ok), false);
+                //if (event._fkProfileEnd == 0)
+                //    event._fkProfileEnd = getPredefinedProfile(6, true, baseContext)._id;
                 //event._undoneProfile = false;
                 event._atEndDo = Event.EATENDDO_RESTART_EVENTS;
                 event._priority = Event.EPRIORITY_HIGHEST;
-                event._forceRun = true;
+                event._ignoreManualActivation = true;
                 event._noPauseByManualActivation = false;
                 event._eventPreferencesBattery._enabled = true;
-                if (Build.VERSION.SDK_INT >= 21) {
+                //if (Build.VERSION.SDK_INT >= 21) {
                     event._eventPreferencesBattery._levelLow = 0;
                     event._eventPreferencesBattery._levelHight = 100;
                     event._eventPreferencesBattery._powerSaveMode = true;
-                }
+                /*}
                 else {
                     event._eventPreferencesBattery._levelLow = 0;
                     event._eventPreferencesBattery._levelHight = 10;
                     event._eventPreferencesBattery._powerSaveMode = false;
-                }
+                }*/
                 event._eventPreferencesBattery._charging = 0;
+                event._eventPreferencesBattery._plugged = "";
                 break;
             default:
                 event = null;
@@ -1304,192 +1520,344 @@ public class DataWrapper {
         return event;
     }
 
-    void generatePredefinedEventList()
+    void generatePredefinedEventList(Context baseContext)
     {
-        invalidateEventList();
+        //invalidateEventList();
         DatabaseHandler.getInstance(context).deleteAllEvents();
 
-        for (int index = 0; index < 5; index++)
-            getPredefinedEvent(index, true);
+        synchronized (eventList) {
+            for (int index = 0; index < 6; index++) {
+                Event event = getPredefinedEvent(index, true, baseContext);
+                if (event != null)
+                    eventList.add(event);
+            }
+        }
+
+        fillEventList();
     }
 
 
 //---------------------------------------------------
 
-    List<EventTimeline> getEventTimelineList()
+//---------------------------------------------------
+
+    void fillEventTimelineList()
     {
-        return DatabaseHandler.getInstance(context).getAllEventTimelines();
+        synchronized (eventTimelines) {
+            if (!eventTimelineListFilled) {
+                eventTimelines.addAll(DatabaseHandler.getInstance(context).getAllEventTimelines());
+                eventTimelineListFilled = true;
+            }
+        }
     }
 
-    public void invalidateDataWrapper()
+    void copyEventTimelineList(DataWrapper fromDataWrapper) {
+        synchronized (eventTimelines) {
+            if (eventTimelineListFilled) {
+                eventTimelines.clear();
+                eventTimelineListFilled = false;
+            }
+            if (fromDataWrapper.eventTimelineListFilled) {
+                eventTimelines.addAll(fromDataWrapper.eventTimelines);
+                eventTimelineListFilled = true;
+            }
+        }
+    }
+
+    private void invalidateEventTimelineList()
+    {
+        synchronized (eventTimelines) {
+            if (eventTimelineListFilled)
+                eventTimelines.clear();
+            eventTimelineListFilled = false;
+        }
+    }
+
+    List<EventTimeline> getEventTimelineList(boolean fromDB)
+    {
+        synchronized (eventTimelines) {
+            if (!eventTimelineListFilled || fromDB)
+                if (fromDB)
+                    invalidateEventTimelineList();
+                fillEventTimelineList();
+        }
+        return eventTimelines;
+    }
+
+//-------------------------------------------------------------------------------------------------------------------
+
+    /*public void invalidateDataWrapper()
     {
         invalidateProfileList();
         invalidateEventList();
-    }
+        invalidateEventTimelineList();
+    }*/
 
 //----- Activate profile ---------------------------------------------------------------------------------------------
 
-    private void _activateProfile(Profile _profile, boolean merged, int startupSource
-                                    /*,final boolean _interactive,*/)
+    private void _activateProfile(Profile _profile, boolean merged, int startupSource, final boolean forRestartEvents)
     {
-        // remove last configured profile duration alarm
-        ProfileDurationAlarmBroadcastReceiver.removeAlarm(context);
-        Profile.setActivatedProfileForDuration(context, 0);
 
-        final Profile profile = Profile.getMappedProfile(_profile, context);
-        //profile = filterProfileWithBatteryEvents(profile);
+//        PPApplication.logE("[BLOCK_ACTIONS] DataWrapper._activateProfile", "before synchronized");
+//        synchronized (PPApplication.restartEventsMutex) {
+//            PPApplication.logE("[BLOCK_ACTIONS] DataWrapper._activateProfile", "after synchronized");
 
-        if (profile != null)
-            PPApplication.logE("$$$ DataWrapper._activateProfile","profileName="+profile._name);
-        else
-            PPApplication.logE("$$$ DataWrapper._activateProfile","profile=null");
+//            if (PPApplication.logEnabled()) {
+//                PPApplication.logE("[APP_START] DataWrapper._activateProfile", "_profile=" + _profile);
+//                if (_profile != null)
+//                    PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "_profile._name=" + _profile._name);
+//                PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "merged=" + merged);
+//                PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "startupSource=" + startupSource);
+//                PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "forRestartEvents=" + forRestartEvents);
+//            }
 
-        PPApplication.logE("$$$ DataWrapper._activateProfile","startupSource="+startupSource);
-        PPApplication.logE("$$$ DataWrapper._activateProfile","merged="+merged);
+            // show notification when battery optimization is not enabled
+            DrawOverAppsPermissionNotification.showNotification(context, false);
+            IgnoreBatteryOptimizationNotification.showNotification(context, false);
 
-        //boolean interactive = _interactive;
-        //final Activity activity = _activity;
+            // remove last configured profile duration alarm
+            ProfileDurationAlarmBroadcastReceiver.removeAlarm(_profile, context);
+            //Profile.setActivatedProfileForDuration(context, 0);
 
-        // get currently activated profile
-        Profile activatedProfile = getActivatedProfile(false, false);
+            //final Profile mappedProfile = _profile; //Profile.getMappedProfile(_profile, context);
+            //profile = filterProfileWithBatteryEvents(profile);
 
-        if ((startupSource != PPApplication.STARTUP_SOURCE_SERVICE) &&
-            //(startupSource != PPApplication.STARTUP_SOURCE_BOOT) &&  // on boot must set as manual activation
-            (startupSource != PPApplication.STARTUP_SOURCE_LAUNCHER_START))
-        {
-            // manual profile activation
+            /*if (_profile != null)
+                PPApplication.logE("$$$ DataWrapper._activateProfile","profileName="+_profile._name);
+            else
+            PPApplication.logE("$$$ DataWrapper._activateProfile","profile=null");*/
 
-            ActivateProfileHelper.lockRefresh = true;
+            //if (_profile != null)
+            //    Profile.saveProfileToSharedPreferences(_profile, context);
 
-            // pause all events
-            // for forceRun events set system events and block all events
-            pauseAllEvents(false, true/*, true*/);
+            //boolean fullyStarted = false;
+            //if (PhoneProfilesService.getInstance() != null)
+            //    fullyStarted = PhoneProfilesService.getInstance().getApplicationFullyStarted();
 
-            ActivateProfileHelper.lockRefresh = false;
-        }
+//            boolean fullyStarted = PPApplication.applicationFullyStarted;
 
-        DatabaseHandler.getInstance(context).activateProfile(_profile);
-        setProfileActive(_profile);
+            //boolean applicationPackageReplaced = PPApplication.applicationPackageReplaced;
+            /*if (PPApplication.logEnabled()) {
+                PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "fullyStarted=" + fullyStarted);
+                PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "applicationPackageReplaced=" + applicationPackageReplaced);
+            }*/
 
-        String profileIcon = "";
-        int profileDuration = 0;
-        if (profile != null)
-        {
-            profileIcon = profile._icon;
+//            if ((!fullyStarted) /*|| applicationPackageReplaced*/) {
+                // do not activate profile during application start
+                //PPApplication.showProfileNotification(/*context*/forRestartEvents || (startupSource == PPApplication.STARTUP_SOURCE_BOOT), false);
+                //PPApplication.logE("ActivateProfileHelper.updateGUI", "from DataWrapper._activateProfile");
+                //PPApplication.logE("###### PPApplication.updateGUI", "from=DataWrapper._activateProfile (1)");
+//                PPApplication.updateGUI(1/*context, true, forRestartEvents || (startupSource == PPApplication.STARTUP_SOURCE_BOOT)*/);
+//                return;
+//            }
 
-            if ((profile._afterDurationDo != Profile.AFTERDURATIONDO_NOTHING) &&
-                    (profile._duration > 0))
-                profileDuration = profile._duration;
+            //PPApplication.logE("DataWrapper._activateProfile", "activate");
 
-            // activation with duration
-            if ((startupSource != PPApplication.STARTUP_SOURCE_SERVICE) &&
-                (startupSource != PPApplication.STARTUP_SOURCE_BOOT) &&
-                (startupSource != PPApplication.STARTUP_SOURCE_LAUNCHER_START))
-            {
+            /*if (PPApplication.logEnabled()) {
+                PPApplication.logE("$$$ DataWrapper._activateProfile", "startupSource=" + startupSource);
+                PPApplication.logE("$$$ DataWrapper._activateProfile", "merged=" + merged);
+            }*/
+
+    //        if (PPApplication.logEnabled()) {
+    //            if (PhoneProfilesService.getInstance() != null) {
+    //                PPApplication.logE("### DataWrapper._activateProfile", "serviceHasFirstStart=" + PPApplication.serviceHasFirstStart);
+    //                PPApplication.logE("### DataWrapper._activateProfile", "serviceRunning=" + PhoneProfilesService.getInstance().getServiceRunning());
+    //            }
+    //        }
+
+            //boolean interactive = _interactive;
+            //final Activity activity = _activity;
+
+            // get currently activated profile
+            //Profile oldActivatedProfile = getActivatedProfile(false, false);
+            /*if (PPApplication.logEnabled()) {
+                PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "activatedProfile=" + activatedProfile);
+                if (activatedProfile != null)
+                    PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "activatedProfile._name=" + activatedProfile._name);
+            }*/
+
+            if ((startupSource != PPApplication.STARTUP_SOURCE_EVENT) //&&
+                //(startupSource != PPApplication.STARTUP_SOURCE_BOOT) &&  // on boot must set as manual activation
+                //(startupSource != PPApplication.STARTUP_SOURCE_LAUNCHER_START)
+            ) {
                 // manual profile activation
-                PPApplication.logE("$$$ DataWrapper._activateProfile","manual profile activation");
 
-                //// set profile duration alarm
+                PPApplication.lockRefresh = true;
 
-                // save before activated profile
-                if (activatedProfile != null) {
-                    long profileId = activatedProfile._id;
-                    PPApplication.logE("$$$ DataWrapper._activateProfile", "setActivatedProfileForDuration profileId=" + profileId);
-                    PPApplication.logE("$$$ DataWrapper._activateProfile", "setActivatedProfileForDuration duration=" + profileDuration);
-                    Profile.setActivatedProfileForDuration(context, profileId);
+                //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "before of pauseAllEvents");
+                // pause all events
+                // for forceRun events set system events and block all events
+                pauseAllEvents(false, true/*, true*/);
+                //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "after of pauseAllEvents");
+
+                PPApplication.lockRefresh = false;
+            }
+
+            //PPApplication.logE("$$$ DataWrapper._activateProfile","before activation");
+
+            //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "set activate profile start");
+            DatabaseHandler.getInstance(context).activateProfile(_profile);
+            setProfileActive(_profile);
+            //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "set activate profile end");
+
+            //PPApplication.logE("$$$ DataWrapper._activateProfile","after activation");
+
+            String profileIcon = "";
+            int profileDuration = 0;
+            if (_profile != null) {
+                profileIcon = _profile._icon;
+
+                /*if (PPApplication.logEnabled()) {
+                    PPApplication.logE("$$$ DataWrapper._activateProfile", "duration=" + mappedProfile._duration);
+                    PPApplication.logE("$$$ DataWrapper._activateProfile", "afterDurationDo=" + mappedProfile._afterDurationDo);
+                }*/
+                if ((_profile._afterDurationDo != Profile.AFTER_DURATION_DO_NOTHING) &&
+                        (_profile._duration > 0)) {
+                    profileDuration = _profile._duration;
                 }
-                else
-                    Profile.setActivatedProfileForDuration(context, 0);
 
-                ProfileDurationAlarmBroadcastReceiver.setAlarm(profile, context);
-                ///////////
+                //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "profileDuration="+profileDuration);
+
+                if (((startupSource != PPApplication.STARTUP_SOURCE_EVENT) &&
+                     (startupSource != PPApplication.STARTUP_SOURCE_BOOT) //&&
+                   //(startupSource != PPApplication.STARTUP_SOURCE_LAUNCHER_START)
+                ) || (_profile._afterDurationDo == Profile.AFTER_DURATION_DO_SPECIFIC_PROFILE)) {
+                    // activation with duration
+
+
+                    /*if (mappedProfile._afterDurationDo == Profile.AFTER_DURATION_DO_SPECIFIC_PROFILE)
+                        // manual profile activation
+                        PPApplication.logE("$$$ DataWrapper._activateProfile","activation of specific profile");
+                    else
+                        // manual profile activation
+                        PPApplication.logE("$$$ DataWrapper._activateProfile","manual profile activation");*/
+
+                    //// set profile duration alarm
+
+                    // save before activated profile
+                    //if (oldActivatedProfile != null) {
+                        //long profileId = oldActivatedProfile._id;
+//                        if (PPApplication.logEnabled()) {
+//                            PPApplication.logE("----------- $$$ DataWrapper._activateProfile", "setActivatedProfileForDuration profileId=" + profileId);
+//                            PPApplication.logE("----------- $$$ DataWrapper._activateProfile", "setActivatedProfileForDuration duration=" + profileDuration);
+//                            PPApplication.logE("----------- $$$ DataWrapper._activateProfile", "setActivatedProfileForDuration forRestartEvents=" + forRestartEvents);
+//                        }
+                        //Profile.setActivatedProfileForDuration(context, profileId);
+                    //}
+
+                    if (startupSource != PPApplication.STARTUP_SOURCE_EVENT_MANUAL) {
+                        long profileId = _profile._id;
+//                        PPApplication.logE("[FIFO_TEST] DataWrapper._activateProfile", "#### add profileId=" + profileId);
+                        addProfileToFIFO(profileId, 0);
+                    }
+
+                    ProfileDurationAlarmBroadcastReceiver.setAlarm(_profile, forRestartEvents, startupSource, context);
+                    ///////////
+                } else {
+//                    PPApplication.logE("----------- $$$ DataWrapper._activateProfile","setActivatedProfileForDuration NO manual profile activation");
+                    profileDuration = 0;
+
+                }
+
+                //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "profileDuration="+profileDuration);
             }
-            else {
-                PPApplication.logE("$$$ DataWrapper._activateProfile","NO manual profile activation");
-                profileDuration = 0;
+
+            //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "update gui");
+            //PPApplication.showProfileNotification(/*context*/forRestartEvents || (startupSource == PPApplication.STARTUP_SOURCE_BOOT), false);
+            //PPApplication.logE("ActivateProfileHelper.updateGUI", "from DataWrapper._activateProfile");
+            //PPApplication.logE("###### PPApplication.updateGUI", "from=DataWrapper._activateProfile (2)");
+            PPApplication.updateGUI(1, context/*, true, forRestartEvents || (startupSource == PPApplication.STARTUP_SOURCE_BOOT)*/);
+
+            if (_profile != null) {
+//                PPApplication.logE("[APP_START] DataWrapper._activateProfile", "call execute");
+                //PPApplication.logE("$$$ DataWrapper._activateProfile","execute activation");
+                ActivateProfileHelper.execute(context, _profile);
             }
-        }
 
-        if (PhoneProfilesService.instance != null)
-            PhoneProfilesService.instance.showProfileNotification(this);
-        ActivateProfileHelper.updateGUI(context, true);
+            if (/*(mappedProfile != null) &&*/ (!merged)) {
+                //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "add log");
+                PPApplication.addActivityLog(context, PPApplication.ALTYPE_PROFILE_ACTIVATION, null,
+                        getProfileNameWithManualIndicatorAsString(_profile, true, "", profileDuration > 0, false, false, this),
+                        profileIcon, profileDuration, "");
+            }
 
-        if (profile != null)
-            ActivateProfileHelper.execute(context, profile);
-
-        if ((profile != null) && (!merged)) {
-            addActivityLog(DatabaseHandler.ALTYPE_PROFILEACTIVATION, null,
-                    getProfileNameWithManualIndicator(profile, true, profileDuration > 0, false, this),
-                    profileIcon, profileDuration);
-        }
-
-        if (profile != null)
-        {
-            if (ApplicationPreferences.notificationsToast(context) && (!ActivateProfileHelper.lockRefresh))
-            {
+            //if (mappedProfile != null)
+            //{
+            if (ApplicationPreferences.notificationsToast && (!PPApplication.lockRefresh) &&
+                    (PPApplication.applicationFullyStarted && PPApplication.normalServiceStart)) {
                 // toast notification
                 if (PPApplication.toastHandler != null) {
-                    //final Profile __profile = profile;
-                    PPApplication.toastHandler.post(new Runnable() {
-                        public void run() {
-                            showToastAfterActivation(profile);
-                        }
+                    final Profile __profile = _profile;
+                    PPApplication.toastHandler.post(() -> {
+                        //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "show toast");
+                        showToastAfterActivation(__profile);
                     });
                 }// else
                 //    showToastAfterActivation(profile);
             }
-        }
+            //}
+//        }
     }
 
-    void activateProfileFromMainThread(final Profile _profile, final boolean merged, final int startupSource,
-                                    final Activity _activity)
+    void activateProfileFromMainThread(final Profile profile, final boolean merged, final int startupSource,
+                                    final boolean interactive, final Activity _activity, final boolean testGrant)
     {
-        PPApplication.logE("DataWrapper.activateProfileFromMainThread", "start");
-        final DataWrapper dataWrapper = new DataWrapper(context, monochrome, monochromeValue);
-        synchronized (profileList) {
-            dataWrapper.copyProfileList(this);
-        }
-        synchronized (eventList) {
-            dataWrapper.copyEventList(this);
-        }
+        //PPApplication.logE("$$$$$ DataWrapper.activateProfileFromMainThread", "start");
+        final DataWrapper dataWrapper = copyDataWrapper();
 
-        PPApplication.startHandlerThread("DataWrapper.activateProfileFromMainThread");
+        PPApplication.startHandlerThread(/*"DataWrapper.activateProfileFromMainThread"*/);
         final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                PowerManager powerManager = (PowerManager) context.getSystemService(POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
+        handler.post(() -> {
+//                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.activateProfileFromMainThread");
+
+            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = null;
+            try {
                 if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DataWrapper.activateProfileFromMainThread");
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_activateProfileFromMainThread");
                     wakeLock.acquire(10 * 60 * 1000);
                 }
 
-                PPApplication.logE("DataWrapper.activateProfileFromMainThread", "start in handler");
-                dataWrapper._activateProfile(_profile, merged, startupSource);
-                if (_activity != null) {
-                    DatabaseHandler.getInstance(context).increaseActivationByUserCount(_profile);
-                    dataWrapper.setDynamicLauncherShortcuts();
+                synchronized (PPApplication.eventsHandlerMutex) {
+
+                    boolean granted = true;
+                    if (testGrant)
+                        granted = !PhoneProfilesService.displayPreferencesErrorNotification(profile, null, context);
+                    if (granted) {
+                        //PPApplication.logE("&&&&&&& DataWrapper.activateProfileFromMainThread", "called is DataWrapper._activateProfile()");
+                        dataWrapper._activateProfile(profile, merged, startupSource, false);
+                        if (interactive) {
+                            DatabaseHandler.getInstance(dataWrapper.context).increaseActivationByUserCount(profile);
+                            dataWrapper.setDynamicLauncherShortcuts();
+                        }
+                    }
+
                 }
-                PPApplication.logE("DataWrapper.activateProfileFromMainThread", "end in handler");
 
-                if ((wakeLock != null) && wakeLock.isHeld())
-                    wakeLock.release();
-
+                //PPApplication.logE("$$$$$ PPApplication.startHandlerThread", "END run - from=DataWrapper.activateProfileFromMainThread");
+            } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                PPApplication.recordException(e);
+            } finally {
+                if ((wakeLock != null) && wakeLock.isHeld()) {
+                    try {
+                        wakeLock.release();
+                    } catch (Exception ignored) {}
+                }
             }
         });
 
         // for startActivityForResult
         if (_activity != null)
         {
-            final Profile profile = Profile.getMappedProfile(_profile, context);
+            //final Profile profile = _profile; //Profile.getMappedProfile(_profile, context);
 
             Intent returnIntent = new Intent();
             if (profile == null)
                 returnIntent.putExtra(PPApplication.EXTRA_PROFILE_ID, 0);
             else
                 returnIntent.putExtra(PPApplication.EXTRA_PROFILE_ID, profile._id);
-            returnIntent.getIntExtra(PPApplication.EXTRA_STARTUP_SOURCE, startupSource);
+            returnIntent.putExtra(PPApplication.EXTRA_STARTUP_SOURCE, startupSource);
             _activity.setResult(Activity.RESULT_OK,returnIntent);
         }
 
@@ -1499,16 +1867,26 @@ public class DataWrapper {
 
     private void showToastAfterActivation(Profile profile)
     {
-        //Log.d("DataWrapper.showToastAfterActivation", "xxx");
+        //boolean fullyStarted = false;
+        //if (PhoneProfilesService.getInstance() != null)
+        //    fullyStarted = PhoneProfilesService.getInstance().getApplicationFullyStarted();
+
+//        boolean fullyStarted = PPApplication.applicationFullyStarted;
+
+        //fullyStarted = fullyStarted && (!PPApplication.applicationPackageReplaced);
+
+//        if (!fullyStarted)
+//            return;
+
         try {
-            String profileName = getProfileNameWithManualIndicator(profile, true, false, false, this);
-            Toast msg = Toast.makeText(context,
+            String profileName = getProfileNameWithManualIndicatorAsString(profile, true, "", false, false, false, this);
+            PPApplication.showToast(context.getApplicationContext(),
                     context.getResources().getString(R.string.toast_profile_activated_0) + ": " + profileName + " " +
                             context.getResources().getString(R.string.toast_profile_activated_1),
                     Toast.LENGTH_SHORT);
-            msg.show();
         }
-        catch (Exception ignored) {
+        catch (Exception e) {
+            PPApplication.recordException(e);
         }
         //Log.d("DataWrapper.showToastAfterActivation", "-- end");
     }
@@ -1516,13 +1894,15 @@ public class DataWrapper {
     private void activateProfileWithAlert(Profile profile, int startupSource, /*final boolean interactive,*/
                                             Activity activity)
     {
-        if (/*interactive &&*/ (ApplicationPreferences.applicationActivateWithAlert(context) ||
+//        PPApplication.logE("[BLOCK_ACTIONS] DataWrapper.activateProfileWithAlert", "false");
+        PPApplication.setBlockProfileEventActions(false);
+
+        if (/*interactive &&*/ (ApplicationPreferences.applicationActivateWithAlert ||
                             (startupSource == PPApplication.STARTUP_SOURCE_EDITOR)))
         {
             // set theme and language for dialog alert ;-)
-            // not working on Android 2.3.x
-            GlobalGUIRoutines.setTheme(activity, true, false, false);
-            GlobalGUIRoutines.setLanguage(activity.getBaseContext());
+            GlobalGUIRoutines.setTheme(activity, true, true/*, false*/, false);
+            //GlobalGUIRoutines.setLanguage(activity);
 
             final Profile _profile = profile;
             //final boolean _interactive = interactive;
@@ -1531,81 +1911,90 @@ public class DataWrapper {
             final DataWrapper _dataWrapper = this;
 
             if (profile._askForDuration) {
-                FastAccessDurationDialog dlg = new FastAccessDurationDialog(_activity, _profile, _dataWrapper,
-                        /*monochrome, monochromeValue,*/ _startupSource);
-                dlg.show();
+                if (!_activity.isFinishing()) {
+                    FastAccessDurationDialog dlg = new FastAccessDurationDialog(_activity, _profile, _dataWrapper,
+                            /*monochrome, monochromeValue,*/ _startupSource);
+                    dlg.show();
+                }
             }
             else {
                 AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(activity);
                 dialogBuilder.setTitle(activity.getResources().getString(R.string.profile_string_0) + ": " + profile._name);
                 dialogBuilder.setMessage(activity.getResources().getString(R.string.activate_profile_alert_message));
                 //dialogBuilder.setIcon(android.R.drawable.ic_dialog_alert);
-                dialogBuilder.setPositiveButton(R.string.alert_button_yes, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        if (Permissions.grantProfilePermissions(context, _profile, false, false,
-                                /*false, monochrome, monochromeValue,*/
-                                _startupSource, /*true,*/ _activity, true))
-                            _dataWrapper.activateProfileFromMainThread(_profile, false, _startupSource, /*true,*/ _activity);
+                dialogBuilder.setPositiveButton(R.string.alert_button_yes, (dialog, which) -> {
+                        //if (Permissions.grantProfilePermissions(context, _profile, false, true,
+                        //        /*false, monochrome, monochromeValue,*/
+                        //        _startupSource, true, true, false))
+                        if (!PhoneProfilesService.displayPreferencesErrorNotification(_profile, null, context)) {
+                            //PPApplication.logE("&&&&&&& DataWrapper.activateProfileWithAlert", "(1) called is DataWrapper.activateProfileFromMainThread");
+                            _dataWrapper.activateProfileFromMainThread(_profile, false, _startupSource, true, _activity, false);
+                        }
                         else {
                             Intent returnIntent = new Intent();
                             _activity.setResult(Activity.RESULT_CANCELED, returnIntent);
 
-                            finishActivity(_startupSource, false, _activity);
+                            finishActivity(_startupSource, true, _activity);
                         }
-                        }
-                });
-                dialogBuilder.setNegativeButton(R.string.alert_button_no, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        // for startActivityForResult
-                        Intent returnIntent = new Intent();
-                        _activity.setResult(Activity.RESULT_CANCELED, returnIntent);
+                    });
+                dialogBuilder.setNegativeButton(R.string.alert_button_no, (dialog, which) -> {
+                    // for startActivityForResult
+                    Intent returnIntent = new Intent();
+                    _activity.setResult(Activity.RESULT_CANCELED, returnIntent);
 
-                        finishActivity(_startupSource, false, _activity);
-                    }
+                    finishActivity(_startupSource, false, _activity);
                 });
-                dialogBuilder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                dialogBuilder.setOnCancelListener(dialog -> {
+                    // for startActivityForResult
+                    Intent returnIntent = new Intent();
+                    _activity.setResult(Activity.RESULT_CANCELED, returnIntent);
 
-                    public void onCancel(DialogInterface dialog) {
-                        // for startActivityForResult
-                        Intent returnIntent = new Intent();
-                        _activity.setResult(Activity.RESULT_CANCELED, returnIntent);
-
-                        finishActivity(_startupSource, false, _activity);
-                    }
+                    finishActivity(_startupSource, false, _activity);
                 });
-                dialogBuilder.show();
+                AlertDialog dialog = dialogBuilder.create();
+
+//                dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+//                    @Override
+//                    public void onShow(DialogInterface dialog) {
+//                        Button positive = ((AlertDialog)dialog).getButton(DialogInterface.BUTTON_POSITIVE);
+//                        if (positive != null) positive.setAllCaps(false);
+//                        Button negative = ((AlertDialog)dialog).getButton(DialogInterface.BUTTON_NEGATIVE);
+//                        if (negative != null) negative.setAllCaps(false);
+//                    }
+//                });
+
+                if (!activity.isFinishing())
+                    dialog.show();
             }
         }
         else
         {
+            GlobalGUIRoutines.setTheme(activity, true, true/*, false*/, false);
+            //GlobalGUIRoutines.setLanguage(activity);
+
             if (profile._askForDuration/* && interactive*/) {
-                FastAccessDurationDialog dlg = new FastAccessDurationDialog(activity, profile, this,
-                        /*monochrome, monochromeValue,*/ startupSource);
-                dlg.show();
+                if (!activity.isFinishing()) {
+                    FastAccessDurationDialog dlg = new FastAccessDurationDialog(activity, profile, this,
+                            /*monochrome, monochromeValue,*/ startupSource);
+                    dlg.show();
+                }
             }
             else {
-                boolean granted;
-                //if (interactive) {
-                    // set theme and language for dialog alert ;-)
-                    // not working on Android 2.3.x
-                    GlobalGUIRoutines.setTheme(activity, true, false, false);
-                    GlobalGUIRoutines.setLanguage(activity.getBaseContext());
+                if (!PhoneProfilesService.displayPreferencesErrorNotification(profile, null, context)) {
+                    //PPApplication.logE("&&&&&&& DataWrapper.activateProfileWithAlert", "(2) called is DataWrapper.activateProfileFromMainThread");
+                    activateProfileFromMainThread(profile, false, startupSource, true, activity, false);
+                }
+                else {
+                    Intent returnIntent = new Intent();
+                    activity.setResult(Activity.RESULT_CANCELED, returnIntent);
 
-                    granted = Permissions.grantProfilePermissions(context, profile, false, false,
-                            /*false, monochrome, monochromeValue,*/
-                            startupSource, /*true,*/ activity, true);
-                /*}
-                else
-                    granted = Permissions.grantProfilePermissions(context, profile, false, true,
-                            forGUI, monochrome, monochromeValue,
-                            startupSource, false, null, true);*/
-                if (granted)
-                    activateProfileFromMainThread(profile, false, startupSource, /*interactive,*/ activity);
+                    finishActivity(startupSource, true, activity);
+                }
             }
         }
     }
 
-    void finishActivity(int startupSource, boolean afterActivation, Activity _activity)
+    void finishActivity(final int startupSource, boolean finishActivator, final Activity _activity)
     {
         if (_activity == null)
             return;
@@ -1617,12 +2006,12 @@ public class DataWrapper {
         if (startupSource == PPApplication.STARTUP_SOURCE_ACTIVATOR)
         {
             finish = false;
-            if (ApplicationPreferences.applicationClose(context))
+            if (ApplicationPreferences.applicationClose)
             {
                 // close of activity after profile activation is enabled
-                if (PPApplication.getApplicationStarted(context, false))
+                if (PPApplication.getApplicationStarted(false))
                     // application is already started and is possible to close activity
-                    finish = afterActivation;
+                    finish = finishActivator;
             }
         }
         else
@@ -1631,16 +2020,34 @@ public class DataWrapper {
             finish = false;
         }
 
-        if (finish)
-            _activity.finish();
+        if (finish) {
+            final Handler handler = new Handler(context.getMainLooper());
+            handler.post(() -> {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.finishActivity");
+
+                try {
+                    //if (startupSource == PPApplication.STARTUP_SOURCE_ACTIVATOR)
+                    //    _activity.finishAndRemoveTask();
+                    //else
+                        _activity.finish();
+                } catch (Exception e) {
+                    PPApplication.recordException(e);
+                }
+            });
+        }
     }
 
-    public void activateProfile(final long profile_id, final int startupSource, final Activity activity)
+    public void activateProfile(final long profile_id, final int startupSource, final Activity activity, boolean testGrant)
     {
         Profile profile;
 
         // for activated profile is recommended update of activity
-        profile = getActivatedProfile(false, false);
+        if (startupSource == PPApplication.STARTUP_SOURCE_BOOT) {
+            long profileId = PPApplication.prefLastActivatedProfile;
+            profile = getProfileById(profileId, false, false, false);
+        }
+        else
+            profile = getActivatedProfile(false, false);
 
         boolean actProfile = false;
         //boolean interactive = false;
@@ -1648,24 +2055,30 @@ public class DataWrapper {
             (startupSource == PPApplication.STARTUP_SOURCE_WIDGET) ||
             (startupSource == PPApplication.STARTUP_SOURCE_ACTIVATOR) ||
             (startupSource == PPApplication.STARTUP_SOURCE_EDITOR) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_SERVICE) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_SERVICE_MANUAL) ||
+            (startupSource == PPApplication.STARTUP_SOURCE_EVENT) ||
+            (startupSource == PPApplication.STARTUP_SOURCE_EVENT_MANUAL) ||
             (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER))
         {
             // activation is invoked from shortcut, widget, Activator, Editor, service,
             // do profile activation
             actProfile = true;
-            //interactive = ((startupSource != PPApplication.STARTUP_SOURCE_SERVICE));
+            //interactive = ((startupSource != PPApplication.STARTUP_SOURCE_EVENT));
         }
         else
         if (startupSource == PPApplication.STARTUP_SOURCE_BOOT)
         {
             // activation is invoked during device boot
 
-            ProfileDurationAlarmBroadcastReceiver.removeAlarm(context);
-            Profile.setActivatedProfileForDuration(context, 0);
+            //ProfileDurationAlarmBroadcastReceiver.removeAlarm(null, context);
+            //Profile.setActivatedProfileForDuration(context, 0);
 
-            if (ApplicationPreferences.applicationActivate(context))
+//            PPApplication.logE("[FIFO_TEST] DataWrapper.activateProfile", "#### clear");
+            synchronized (PPApplication.profileActivationMutex) {
+                List<String> activateProfilesFIFO = new ArrayList<>();
+                saveActivatedProfilesFIFO(activateProfilesFIFO);
+            }
+
+            if (ApplicationPreferences.applicationActivate)
             {
                 actProfile = true;
             }
@@ -1673,29 +2086,34 @@ public class DataWrapper {
             if (profile_id == 0)
                 profile = null;
         }
-        else
+        /*else
         if (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER_START)
         {
             // activation is invoked from launcher
 
-            ProfileDurationAlarmBroadcastReceiver.removeAlarm(context);
+            Profile _profile;
+            if (profile_id == 0)
+                _profile = null;
+            else
+                _profile = getProfileById(profile_id, false, false, false);
+            ProfileDurationAlarmBroadcastReceiver.removeAlarm(_profile, context);
             Profile.setActivatedProfileForDuration(context, 0);
 
-            if (ApplicationPreferences.applicationActivate(context))
+            if (ApplicationPreferences.applicationActivate)
             {
                 actProfile = true;
             }
 
             if (profile_id == 0)
                 profile = null;
-        }
+        }*/
 
         if ((startupSource == PPApplication.STARTUP_SOURCE_SHORTCUT) ||
             (startupSource == PPApplication.STARTUP_SOURCE_WIDGET) ||
             (startupSource == PPApplication.STARTUP_SOURCE_ACTIVATOR) ||
             (startupSource == PPApplication.STARTUP_SOURCE_EDITOR) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_SERVICE) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER_START) ||
+            (startupSource == PPApplication.STARTUP_SOURCE_EVENT) ||
+            //(startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER_START) ||
             (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER))
         {
             if (profile_id == 0)
@@ -1708,9 +2126,11 @@ public class DataWrapper {
         if (actProfile && (profile != null))
         {
             // profile activation
-            if (startupSource == PPApplication.STARTUP_SOURCE_BOOT)
+            if (startupSource == PPApplication.STARTUP_SOURCE_BOOT) {
+                //PPApplication.logE("&&&&&&& DataWrapper.activateProfile", "called is DataWrapper.activateProfileFromMainThread");
                 activateProfileFromMainThread(profile, false, PPApplication.STARTUP_SOURCE_BOOT,
-                                        /*boolean _interactive,*/ null);
+                        false, null, testGrant);
+            }
             else
                 activateProfileWithAlert(profile, startupSource, /*interactive,*/ activity);
         }
@@ -1719,16 +2139,17 @@ public class DataWrapper {
             DatabaseHandler.getInstance(context).activateProfile(profile);
             setProfileActive(profile);
 
-            if (PhoneProfilesService.instance != null)
-                PhoneProfilesService.instance.showProfileNotification(this);
-            ActivateProfileHelper.updateGUI(context, true);
+            //PPApplication.showProfileNotification(/*context*/false, false);
+            //PPApplication.logE("ActivateProfileHelper.updateGUI", "from DataWrapper.activateProfile");
+            //PPApplication.logE("###### PPApplication.updateGUI", "from=DataWrapper.activateProfile");
+            PPApplication.updateGUI(1, context/*, true, startupSource == PPApplication.STARTUP_SOURCE_BOOT*/);
 
             // for startActivityForResult
             if (activity != null)
             {
                 Intent returnIntent = new Intent();
                 returnIntent.putExtra(PPApplication.EXTRA_PROFILE_ID, profile_id);
-                returnIntent.getIntExtra(PPApplication.EXTRA_STARTUP_SOURCE, startupSource);
+                returnIntent.putExtra(PPApplication.EXTRA_STARTUP_SOURCE, startupSource);
                 activity.setResult(Activity.RESULT_OK,returnIntent);
             }
 
@@ -1736,1887 +2157,466 @@ public class DataWrapper {
         }
     }
 
-    void activateProfileAfterDuration(long profile_id)
+    void activateProfileAfterDuration(long profile_id, int startupSource)
     {
-        int startupSource = PPApplication.STARTUP_SOURCE_SERVICE_MANUAL;
-        Profile profile = getProfileById(profile_id, false, false, false);
-        PPApplication.logE("DataWrapper.activateProfileAfterDuration", "profile="+profile);
-        if (profile == null) {
-            PPApplication.logE("DataWrapper.activateProfileAfterDuration", "no activate");
-            ProfileDurationAlarmBroadcastReceiver.removeAlarm(context);
-            Profile.setActivatedProfileForDuration(context, 0);
-            if (PhoneProfilesService.instance != null)
-                PhoneProfilesService.instance.showProfileNotification(this);
-            ActivateProfileHelper.updateGUI(context, true);
-            return;
-        }
-        if (Permissions.grantProfilePermissions(context, profile, false, true,
-                /*false, monochrome, monochromeValue,*/
-                startupSource, /*true,*/ null, true)) {
-            // activateProfileAfterDuration is already called from handlerThread
-            PPApplication.logE("DataWrapper.activateProfileAfterDuration", "activate");
-            _activateProfile(profile, false, startupSource);
+        synchronized (PPApplication.eventsHandlerMutex) {
+
+            Profile profile = getProfileById(profile_id, false, false, false);
+            //PPApplication.logE("DataWrapper.activateProfileAfterDuration", "profile="+profile);
+            if (profile == null) {
+                //PPApplication.logE("DataWrapper.activateProfileAfterDuration", "no activate");
+                ProfileDurationAlarmBroadcastReceiver.removeAlarm(null, context);
+                //Profile.setActivatedProfileForDuration(context, 0);
+
+                //PPApplication.showProfileNotification(/*context*/false, false);
+                //PPApplication.logE("ActivateProfileHelper.updateGUI", "from DataWrapper.activateProfileAfterDuration");
+                //PPApplication.logE("###### PPApplication.updateGUI", "from=DataWrapper.activateProfileAfterDuration");
+                PPApplication.updateGUI(1, context/*, true, false*/);
+                return;
+            }
+            //if (Permissions.grantProfilePermissions(context, profile, false, true,
+            //        /*false, monochrome, monochromeValue,*/
+            //        startupSource, true,true, false)) {
+            if (!PhoneProfilesService.displayPreferencesErrorNotification(profile, null, context)) {
+                // activateProfileAfterDuration is already called from handlerThread
+                //PPApplication.logE("&&&&&&& DataWrapper.activateProfileAfterDuration", "called is DataWrapper._activateProfile()");
+                _activateProfile(profile, false, startupSource, false);
+            }
+
         }
     }
 
-    @SuppressLint({ "NewApi", "SimpleDateFormat" })
-    void doHandleEvents(Event event, boolean statePause,
-                                    boolean restartEvent, /*boolean interactive,*/
-                                    boolean forDelayStartAlarm, boolean forDelayEndAlarm,
-                                    boolean reactivate, Profile mergedProfile,
-                                    String sensorType)
+    private void _restartEvents(final boolean unblockEventsRun, /*final boolean notClearActivatedProfile,*/
+                                /*final boolean reactivateProfile,*/ final boolean manualRestart, final boolean logRestart)
     {
-        if (!Permissions.grantEventPermissions(context, event, true))
-            return;
+//        PPApplication.logE("[APP_START] DataWrapper._restartEvents", "START");
 
-        int newEventStatus;// = Event.ESTATUS_NONE;
+//        PPApplication.logE("[BLOCK_ACTIONS] DataWrapper._restartEvents", "before synchronized");
+//        synchronized (PPApplication.restartEventsMutex) {
+//            PPApplication.logE("[BLOCK_ACTIONS] DataWrapper._restartEvents", "after synchronized");
 
-        boolean ignoreTime = false;
-        boolean ignoreBattery = false;
-        boolean ignoreCall = false;
-        boolean ignorePeripheral = false;
-        boolean ignoreCalendar = false;
-        boolean ignoreWifi = false;
-        boolean ignoreScreen = false;
-        boolean ignoreBluetooth = false;
-        boolean ignoreSms = false;
-        boolean ignoreNotification = false;
-        boolean ignoreApplication = false;
-        boolean ignoreLocation = false;
-        boolean ignoreOrientation = false;
-        boolean ignoreMobileCell = false;
-        boolean ignoreNfc = false;
-        boolean ignoreRadioSwitch = false;
+//        PPApplication.logE("[FIFO_TEST] DataWrapper._restartEvents", "xxx");
 
-        boolean timePassed = true;
-        boolean batteryPassed = true;
-        boolean callPassed = true;
-        boolean peripheralPassed = true;
-        boolean calendarPassed = true;
-        boolean wifiPassed = true;
-        boolean screenPassed = true;
-        boolean bluetoothPassed = true;
-        boolean smsPassed = true;
-        boolean notificationPassed = true;
-        boolean applicationPassed = true;
-        boolean locationPassed = true;
-        boolean orientationPassed = true;
-        boolean mobileCellPassed = true;
-        boolean nfcPassed = true;
-        boolean radioSwitchPassed = true;
-
-        PPApplication.logE("%%%%%%% DataWrapper.doHandleEvents","--- start --------------------------");
-        PPApplication.logE("%%%%%%% DataWrapper.doHandleEvents","------- event._id="+event._id);
-        PPApplication.logE("%%%%%%% DataWrapper.doHandleEvents","------- event._name="+event._name);
-        PPApplication.logE("%%%%%%% DataWrapper.doHandleEvents","------- sensorType="+sensorType);
-
-        if (event._eventPreferencesTime._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesTime.PREF_EVENT_TIME_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            // compute start datetime
-            long startAlarmTime;
-            long endAlarmTime;
-
-            startAlarmTime = event._eventPreferencesTime.computeAlarm(true);
-
-            String alarmTimeS = DateFormat.getDateFormat(context).format(startAlarmTime) +
-                                " " + DateFormat.getTimeFormat(context).format(startAlarmTime);
-            PPApplication.logE("%%% DataWrapper.doHandleEvents","startAlarmTime="+alarmTimeS);
-
-            endAlarmTime = event._eventPreferencesTime.computeAlarm(false);
-
-            alarmTimeS = DateFormat.getDateFormat(context).format(endAlarmTime) +
-                         " " + DateFormat.getTimeFormat(context).format(endAlarmTime);
-            PPApplication.logE("%%% DataWrapper.doHandleEvents","endAlarmTime="+alarmTimeS);
-
-            Calendar now = Calendar.getInstance();
-            long nowAlarmTime = now.getTimeInMillis();
-            alarmTimeS = DateFormat.getDateFormat(context).format(nowAlarmTime) +
-                 " " + DateFormat.getTimeFormat(context).format(nowAlarmTime);
-            PPApplication.logE("%%% DataWrapper.doHandleEvents","nowAlarmTime="+alarmTimeS);
-
-            timePassed = ((nowAlarmTime >= startAlarmTime) && (nowAlarmTime < endAlarmTime));
-
-            PPApplication.logE("%%% DataWrapper.doHandleEvents","timePassed="+timePassed);
-
-            //eventStart = eventStart && timePassed;
-        }
-        else
-            ignoreTime = true;
-
-        if (event._eventPreferencesBattery._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesBattery.PREF_EVENT_BATTERY_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            boolean isPowerSaveMode = isPowerSaveMode(context);
-            PPApplication.logE("*** DataWrapper.doHandleEvents", "isPowerSaveMode=" + isPowerSaveMode);
-
-            boolean isCharging;
-            int batteryPct;
-
-            // get battery status
-            Intent batteryStatus = null;
-            try { // Huawei devices: java.lang.IllegalArgumentException: regist too many Broadcast Receivers
-                IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-                batteryStatus = context.registerReceiver(null, filter);
-            } catch (Exception ignored) {}
-
-            if (batteryStatus != null) {
-                batteryPassed = false;
-
-                int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                PPApplication.logE("*** DataWrapper.doHandleEvents", "status=" + status);
-                isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL;
-                PPApplication.logE("*** DataWrapper.doHandleEvents", "isCharging=" + isCharging);
-
-                int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                PPApplication.logE("*** DataWrapper.doHandleEvents", "level=" + level);
-                PPApplication.logE("*** DataWrapper.doHandleEvents", "scale=" + scale);
-
-                batteryPct = Math.round(level / (float) scale * 100);
-                PPApplication.logE("*** DataWrapper.doHandleEvents", "batteryPct=" + batteryPct);
-
-                if ((batteryPct >= event._eventPreferencesBattery._levelLow) &&
-                        (batteryPct <= event._eventPreferencesBattery._levelHight))
-                    batteryPassed = true;
-
-                if (event._eventPreferencesBattery._charging > 0) {
-                    if (event._eventPreferencesBattery._charging == 1)
-                        batteryPassed = batteryPassed && isCharging;
-                    else
-                        batteryPassed = batteryPassed && (!isCharging);
-                }
+            if (logRestart) {
+                if (manualRestart)
+                    PPApplication.addActivityLog(context, PPApplication.ALTYPE_MANUAL_RESTART_EVENTS, null, null, null, 0, "");
                 else
-                if (event._eventPreferencesBattery._powerSaveMode)
-                    batteryPassed = batteryPassed && isPowerSaveMode;
-            }
-            else
-                ignoreBattery = true;
-        }
-        else
-            ignoreBattery = true;
-
-        if ((event._eventPreferencesCall._enabled)  &&
-                (Event.isEventPreferenceAllowed(EventPreferencesCall.PREF_EVENT_CALL_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED)&&
-                Permissions.checkEventCallContacts(context, event, null) &&
-                Permissions.checkEventPhoneBroadcast(context, event, null))
-        {
-            ApplicationPreferences.getSharedPreferences(context);
-            int callEventType = ApplicationPreferences.preferences.getInt(PhoneCallBroadcastReceiver.PREF_EVENT_CALL_EVENT_TYPE, PhoneCallBroadcastReceiver.CALL_EVENT_UNDEFINED);
-            String phoneNumber = ApplicationPreferences.preferences.getString(PhoneCallBroadcastReceiver.PREF_EVENT_CALL_PHONE_NUMBER, "");
-
-            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "callEventType="+callEventType);
-            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "phoneNumber="+phoneNumber);
-
-            boolean phoneNumberFound = false;
-
-            if (callEventType != PhoneCallBroadcastReceiver.CALL_EVENT_UNDEFINED)
-            {
-                if (event._eventPreferencesCall._contactListType != EventPreferencesCall.CONTACT_LIST_TYPE_NOT_USE)
-                {
-                    PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "search in gropus");
-                    // find phone number in groups
-                    String[] splits = event._eventPreferencesCall._contactGroups.split("\\|");
-                    for (String split : splits) {
-                        String[] projection = new String[]{ContactsContract.CommonDataKinds.GroupMembership.CONTACT_ID};
-                        String selection = ContactsContract.CommonDataKinds.GroupMembership.GROUP_ROW_ID + "=? AND "
-                                + ContactsContract.CommonDataKinds.GroupMembership.MIMETYPE + "='"
-                                + ContactsContract.CommonDataKinds.GroupMembership.CONTENT_ITEM_TYPE + "'";
-                        String[] selectionArgs = new String[]{split};
-                        Cursor mCursor = context.getContentResolver().query(ContactsContract.Data.CONTENT_URI, projection, selection, selectionArgs, null);
-                        if (mCursor != null) {
-                            while (mCursor.moveToNext()) {
-                                String contactId = mCursor.getString(mCursor.getColumnIndex(ContactsContract.CommonDataKinds.GroupMembership.CONTACT_ID));
-                                String[] projection2 = new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER};
-                                String selection2 = ContactsContract.CommonDataKinds.Phone.CONTACT_ID + "=?" + " and " +
-                                        ContactsContract.CommonDataKinds.Phone.HAS_PHONE_NUMBER + "=1";
-                                String[] selection2Args = new String[]{contactId};
-                                Cursor phones = context.getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, projection2, selection2, selection2Args, null);
-                                if (phones != null) {
-                                    while (phones.moveToNext()) {
-                                        String _phoneNumber = phones.getString(phones.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
-                                        if (PhoneNumberUtils.compare(_phoneNumber, phoneNumber)) {
-                                            phoneNumberFound = true;
-                                            break;
-                                        }
-                                    }
-                                    phones.close();
-                                }
-                                if (phoneNumberFound)
-                                    break;
-                            }
-                            mCursor.close();
-                        }
-                        if (phoneNumberFound)
-                            break;
-                    }
-
-                    if (!phoneNumberFound) {
-                        PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "search in contacts");
-                        // find phone number in contacts
-                        splits = event._eventPreferencesCall._contacts.split("\\|");
-                        for (String split : splits) {
-                            //PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "split="+split);
-                            String[] splits2 = split.split("#");
-
-                            // get phone number from contacts
-                            String[] projection = new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.HAS_PHONE_NUMBER};
-                            String selection = ContactsContract.Contacts.HAS_PHONE_NUMBER + "='1' and " + ContactsContract.Contacts._ID + "=?";
-                            String[] selectionArgs = new String[]{splits2[0]};
-                            Cursor mCursor = context.getContentResolver().query(ContactsContract.Contacts.CONTENT_URI, projection, selection, selectionArgs, null);
-                            if (mCursor != null) {
-                                while (mCursor.moveToNext()) {
-                                    String[] projection2 = new String[]{ContactsContract.CommonDataKinds.Phone._ID, ContactsContract.CommonDataKinds.Phone.NUMBER};
-                                    String selection2 = ContactsContract.CommonDataKinds.Phone.CONTACT_ID + "=?" + " and " + ContactsContract.CommonDataKinds.Phone._ID + "=?";
-                                    String[] selection2Args = new String[]{splits2[0], splits2[1]};
-                                    Cursor phones = context.getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, projection2, selection2, selection2Args, null);
-                                    if (phones != null) {
-                                        while (phones.moveToNext()) {
-                                            String _phoneNumber = phones.getString(phones.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
-                                            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "_phoneNumber="+_phoneNumber);
-                                            if (PhoneNumberUtils.compare(_phoneNumber, phoneNumber)) {
-                                                phoneNumberFound = true;
-                                                break;
-                                            }
-                                        }
-                                        phones.close();
-                                    }
-                                    if (phoneNumberFound)
-                                        break;
-                                }
-                                mCursor.close();
-                            }
-                            if (phoneNumberFound)
-                                break;
-                        }
-                    }
-
-                    if (event._eventPreferencesCall._contactListType == EventPreferencesCall.CONTACT_LIST_TYPE_BLACK_LIST)
-                        phoneNumberFound = !phoneNumberFound;
-                }
-                else
-                    phoneNumberFound = true;
-
-                PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "phoneNumberFound="+phoneNumberFound);
-
-                if (phoneNumberFound)
-                {
-                    if (event._eventPreferencesCall._callEvent == EventPreferencesCall.CALL_EVENT_RINGING)
-                    {
-                        //noinspection StatementWithEmptyBody
-                        if ((callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_INCOMING_CALL_RINGING) ||
-                            ((callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_INCOMING_CALL_ANSWERED)))
-                            ;//eventStart = eventStart && true;
-                        else
-                            callPassed = false;
-                    }
-                    else
-                    if (event._eventPreferencesCall._callEvent == EventPreferencesCall.CALL_EVENT_INCOMING_CALL_ANSWERED)
-                    {
-                        //noinspection StatementWithEmptyBody
-                        if (callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_INCOMING_CALL_ANSWERED)
-                            ;//eventStart = eventStart && true;
-                        else
-                            callPassed = false;
-                    }
-                    else
-                    if (event._eventPreferencesCall._callEvent == EventPreferencesCall.CALL_EVENT_OUTGOING_CALL_STARTED)
-                    {
-                        //noinspection StatementWithEmptyBody
-                        if (callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_OUTGOING_CALL_ANSWERED)
-                            ;//eventStart = eventStart && true;
-                        else
-                            callPassed = false;
-                    }
-                    else
-                    if (event._eventPreferencesCall._callEvent == EventPreferencesCall.CALL_EVENT_MISSED_CALL)
-                    {
-                        int gmtOffset = 0; //TimeZone.getDefault().getRawOffset();
-                        long startTime = event._eventPreferencesCall._startTime - gmtOffset;
-
-                        if (PPApplication.logEnabled()) {
-                            SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                            String alarmTimeS = sdf.format(startTime);
-                            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "startTime=" + alarmTimeS);
-                        }
-
-                        // compute end datetime
-                        long endAlarmTime = event._eventPreferencesCall.computeAlarm();
-                        if (PPApplication.logEnabled()) {
-                            SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                            String alarmTimeS = sdf.format(endAlarmTime);
-                            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "endAlarmTime=" + alarmTimeS);
-                        }
-
-                        Calendar now = Calendar.getInstance();
-                        long nowAlarmTime = now.getTimeInMillis();
-                        if (PPApplication.logEnabled()) {
-                            SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                            String alarmTimeS = sdf.format(nowAlarmTime);
-                            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "nowAlarmTime=" + alarmTimeS);
-                        }
-
-                        if (sensorType.equals(EventsHandler.SENSOR_TYPE_PHONE_CALL)) {
-                            //noinspection StatementWithEmptyBody
-                            if (callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_MISSED_CALL)
-                                ;//eventStart = eventStart && true;
-                            else
-                                callPassed = false;
-                        }
-                        else if (!event._eventPreferencesCall._permanentRun) {
-                            if (sensorType.equals(EventsHandler.SENSOR_TYPE_PHONE_CALL_EVENT_END))
-                                callPassed = false;
-                            else
-                                callPassed = ((nowAlarmTime >= startTime) && (nowAlarmTime < endAlarmTime));
-                        }
-                        else {
-                            callPassed = nowAlarmTime >= startTime;
-                        }
-                    }
-
-                    if ((callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_INCOMING_CALL_ENDED) ||
-                        (callEventType == PhoneCallBroadcastReceiver.CALL_EVENT_OUTGOING_CALL_ENDED))
-                    {
-                        //callPassed = true;
-                        //eventStart = eventStart && false;
-                        callPassed = false;
-                    }
-                }
-                else
-                    callPassed = false;
-
-            }
-            else
-                callPassed = false;
-
-            PPApplication.logE("[CALL] DataWrapper.doHandleEvents", "callPassed="+callPassed);
-
-            if (!callPassed) {
-                event._eventPreferencesCall._startTime = 0;
-                DatabaseHandler.getInstance(context).updateCallStartTime(event);
-            }
-        }
-        else
-            ignoreCall = true;
-
-        if (event._eventPreferencesPeripherals._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesPeripherals.PREF_EVENT_PERIPHERAL_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            if ((event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_DESK_DOCK) ||
-                (event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_CAR_DOCK))
-            {
-                // get dock status
-                IntentFilter iFilter = new IntentFilter(Intent.ACTION_DOCK_EVENT);
-                Intent dockStatus = context.registerReceiver(null, iFilter);
-
-                if (dockStatus != null)
-                {
-                    int dockState = dockStatus.getIntExtra(Intent.EXTRA_DOCK_STATE, -1);
-                    boolean isDocked = dockState != Intent.EXTRA_DOCK_STATE_UNDOCKED;
-                    boolean isCar = dockState == Intent.EXTRA_DOCK_STATE_CAR;
-                    boolean isDesk = dockState == Intent.EXTRA_DOCK_STATE_DESK ||
-                                     dockState == Intent.EXTRA_DOCK_STATE_LE_DESK ||
-                                     dockState == Intent.EXTRA_DOCK_STATE_HE_DESK;
-
-                    if (isDocked)
-                    {
-                        if ((event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_DESK_DOCK)
-                                && isDesk)
-                            peripheralPassed = true;
-                        else
-                            peripheralPassed = (event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_CAR_DOCK)
-                                    && isCar;
-                    }
-                    else
-                        peripheralPassed = false;
-                    //eventStart = eventStart && peripheralPassed;
-                }
-                else
-                    ignorePeripheral = true;
-            }
-            else
-            if ((event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_WIRED_HEADSET) ||
-                (event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_BLUETOOTH_HEADSET) ||
-                (event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_HEADPHONES))
-            {
-                ApplicationPreferences.getSharedPreferences(context);
-                boolean headsetConnected = ApplicationPreferences.preferences.getBoolean(HeadsetConnectionBroadcastReceiver.PREF_EVENT_HEADSET_CONNECTED, false);
-                boolean headsetMicrophone = ApplicationPreferences.preferences.getBoolean(HeadsetConnectionBroadcastReceiver.PREF_EVENT_HEADSET_MICROPHONE, false);
-                boolean bluetoothHeadset = ApplicationPreferences.preferences.getBoolean(HeadsetConnectionBroadcastReceiver.PREF_EVENT_HEADSET_BLUETOOTH, false);
-
-                if (headsetConnected)
-                {
-                    if ((event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_WIRED_HEADSET)
-                            && headsetMicrophone && (!bluetoothHeadset))
-                        peripheralPassed = true;
-                    else
-                    if ((event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_BLUETOOTH_HEADSET)
-                            && headsetMicrophone && bluetoothHeadset)
-                        peripheralPassed = true;
-                    else
-                        peripheralPassed = (event._eventPreferencesPeripherals._peripheralType == EventPreferencesPeripherals.PERIPHERAL_TYPE_HEADPHONES)
-                                && (!headsetMicrophone) && (!bluetoothHeadset);
-                }
-                else
-                    peripheralPassed = false;
-                //eventStart = eventStart && peripheralPassed;
-            }
-        }
-        else
-            ignorePeripheral = true;
-
-        if ((event._eventPreferencesCalendar._enabled) &&
-                (Event.isEventPreferenceAllowed(EventPreferencesCalendar.PREF_EVENT_CALENDAR_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED) &&
-                (Permissions.checkEventCalendar(context, event, null)))
-        {
-            // compute start datetime
-            long startAlarmTime;
-            long endAlarmTime;
-
-            if (event._eventPreferencesCalendar._eventFound)
-            {
-                startAlarmTime = event._eventPreferencesCalendar.computeAlarm(true);
-
-                String alarmTimeS = DateFormat.getDateFormat(context).format(startAlarmTime) +
-                                    " " + DateFormat.getTimeFormat(context).format(startAlarmTime);
-                PPApplication.logE("DataWrapper.doHandleEvents","startAlarmTime="+alarmTimeS);
-
-                endAlarmTime = event._eventPreferencesCalendar.computeAlarm(false);
-
-                alarmTimeS = DateFormat.getDateFormat(context).format(endAlarmTime) +
-                             " " + DateFormat.getTimeFormat(context).format(endAlarmTime);
-                PPApplication.logE("DataWrapper.doHandleEvents","endAlarmTime="+alarmTimeS);
-
-                Calendar now = Calendar.getInstance();
-                long nowAlarmTime = now.getTimeInMillis();
-                alarmTimeS = DateFormat.getDateFormat(context).format(nowAlarmTime) +
-                     " " + DateFormat.getTimeFormat(context).format(nowAlarmTime);
-                PPApplication.logE("DataWrapper.doHandleEvents","nowAlarmTime="+alarmTimeS);
-
-                calendarPassed = ((nowAlarmTime >= startAlarmTime) && (nowAlarmTime < endAlarmTime));
-            }
-            else
-                calendarPassed = false;
-
-            //eventStart = eventStart && calendarPassed;
-        }
-        else
-            ignoreCalendar = true;
-        
-
-        if (event._eventPreferencesWifi._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesWifi.PREF_EVENT_WIFI_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED)
-                && Permissions.checkEventLocation(context, event, null))
-        {
-            PPApplication.logE("----- DataWrapper.doHandleEvents","-------- eventSSID="+event._eventPreferencesWifi._SSID);
-
-            wifiPassed = false;
-
-            WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            boolean isWifiEnabled = wifiManager.getWifiState() == WifiManager.WIFI_STATE_ENABLED;
-
-            List<WifiSSIDData> wifiConfigurationList = WifiScanJob.getWifiConfigurationList(context);
-
-            boolean done = false;
-
-            if (isWifiEnabled)
-            {
-                PPApplication.logE("----- DataWrapper.doHandleEvents","wifiStateEnabled=true");
-
-                //PPApplication.logE("----- DataWrapper.doHandleEvents","-- eventSSID="+event._eventPreferencesWifi._SSID);
-
-                WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-
-                boolean wifiConnected = false;
-
-                ConnectivityManager connManager = null;
-                try {
-                    connManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-                } catch (Exception ignored) {
-                    // java.lang.NullPointerException: missing IConnectivityManager
-                    // Dual SIM?? Bug in Android ???
-                }
-                if (connManager != null) {
-                    if (android.os.Build.VERSION.SDK_INT >= 21) {
-                        Network[] networks = connManager.getAllNetworks();
-                        if ((networks != null) && (networks.length > 0)) {
-                            for (Network ntk : networks) {
-                                try {
-                                    NetworkInfo ntkInfo = connManager.getNetworkInfo(ntk);
-                                    if (ntkInfo != null) {
-                                        if (ntkInfo.getType() == ConnectivityManager.TYPE_WIFI && ntkInfo.isConnected()) {
-                                            if (wifiInfo != null) {
-                                                wifiConnected = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                } catch (Exception ignored) {
-                                }
-                            }
-                        }
-                    } else {
-                        NetworkInfo ntkInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-                        wifiConnected = (ntkInfo != null) && ntkInfo.isConnected();
-                    }
-                }
-
-                if (wifiConnected)
-                {
-                    PPApplication.logE("----- DataWrapper.doHandleEvents","wifi connected");
-
-                    PPApplication.logE("----- DataWrapper.doHandleEvents","wifiSSID="+ WifiScanJob.getSSID(wifiInfo, wifiConfigurationList));
-                    PPApplication.logE("----- DataWrapper.doHandleEvents","wifiBSSID="+wifiInfo.getBSSID());
-
-                    //PPApplication.logE("----- DataWrapper.doHandleEvents","SSID="+event._eventPreferencesWifi._SSID);
-
-                    String[] splits = event._eventPreferencesWifi._SSID.split("\\|");
-                    for (String _ssid : splits) {
-                        if (_ssid.equals(EventPreferencesWifi.ALL_SSIDS_VALUE)){
-                            wifiPassed = true;
-                        }
-                        else
-                        if (_ssid.equals(EventPreferencesWifi.CONFIGURED_SSIDS_VALUE)){
-                            for (WifiSSIDData data : wifiConfigurationList) {
-                                wifiPassed = WifiScanJob.compareSSID(wifiInfo, data.ssid.replace("\"", ""), wifiConfigurationList);
-                                if (wifiPassed)
-                                    break;
-                            }
-                        }
-                        else
-                            wifiPassed = WifiScanJob.compareSSID(wifiInfo, _ssid, wifiConfigurationList);
-                        if (wifiPassed)
-                            break;
-                    }
-
-                    //PPApplication.logE("----- DataWrapper.doHandleEvents","wifiPassed="+wifiPassed);
-
-                    if (wifiPassed)
-                    {
-                        // event SSID is connected
-                        done = true;
-
-                        if ((event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTCONNECTED) ||
-                            (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTINFRONT))
-                            // for this connectionTypes, wifi must not be connected to event SSID
-                            wifiPassed = false;
-                        //PPApplication.logE("----- DataWrapper.doHandleEvents","wifiPassed="+wifiPassed);
-                    }
-                    else {
-                        if (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTCONNECTED) {
-                            // for this connectionTypes, wifi must not be connected to event SSID
-                            done = true;
-                            wifiPassed = true;
-                        }
-                    }
-                }
-                else
-                {
-                    PPApplication.logE("----- DataWrapper.doHandleEvents", "wifi not connected");
-
-                    if (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTCONNECTED) {
-                        // for this connectionTypes, wifi must not be connected to event SSID
-                        done = true;
-                        wifiPassed = true;
-                    }
-                }
-
-            }
-            else {
-                PPApplication.logE("----- DataWrapper.doHandleEvents", "wifiStateEnabled=false");
-                if ((event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_CONNECTED) ||
-                    (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTCONNECTED)) {
-                    // for this connectionTypes, wifi must not be connected to event SSID
-                    done = true;
-                    wifiPassed = (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTCONNECTED);
-                }
+                    PPApplication.addActivityLog(context, PPApplication.ALTYPE_RESTART_EVENTS, null, null, null, 0, "");
             }
 
-            PPApplication.logE("----- DataWrapper.doHandleEvents","wifiPassed="+wifiPassed);
+            //if ((ApplicationPreferences.prefEventsBlocked && (!unblockEventsRun)) /*|| (!reactivateProfile)*/) {
+            if ((Event.getEventsBlocked(context) && (!unblockEventsRun)) /*|| (!reactivateProfile)*/) {
+                //PPApplication.logE("****** EventsHandler.handleEvents", "START run - from=DataWrapper._restartEvents (1)");
+//            PPApplication.logE("[FIFO_TEST] DataWrapper._restartEvents", "(1)");
+//                PPApplication.logE("[APP_START] DataWrapper._restartEvents", "(1)");
 
-            if ((event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_INFRONT) ||
-                (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTINFRONT))
-            {
-                if (!done) {
-                    if (!ApplicationPreferences.applicationEventWifiEnableScannig(context)) {
-                        // ignore for disabled scanning
-                        ignoreWifi = true;
-                    } else {
-                        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                        if (!pm.isScreenOn() && ApplicationPreferences.applicationEventWifiScanOnlyWhenScreenIsOn(context)) {
-                            // ignore for screen Off
-                            ignoreWifi = true;
-                        } else {
+//                PPApplication.logE("[EVENTS_HANDLER_CALL] DataWrapper._restartEvents", "sensorType=SENSOR_TYPE_RESTART_EVENTS_NOT_UNBLOCK");
+                EventsHandler eventsHandler = new EventsHandler(context);
+                // this do not perform restart, only SENSOR_TYPE_RESTART_EVENTS perform restart
+                eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_RESTART_EVENTS_NOT_UNBLOCK);
 
-                            wifiPassed = false;
+                //PPApplication.logE("****** EventsHandler.handleEvents", "END run - from=DataWrapper._restartEvents (1)");
+                return;
+            }
 
-                            List<WifiSSIDData> scanResults = WifiScanJob.getScanResults(context);
+            //PPApplication.logE("DataWrapper._restartEvents", "events are not blocked");
 
-                            //PPApplication.logE("----- DataWrapper.doHandleEvents","scanResults="+scanResults);
+            //Profile activatedProfile = getActivatedProfile();
 
-                            if (scanResults != null) {
-                                PPApplication.logE("----- DataWrapper.doHandleEvents", "scanResults != null");
-                                PPApplication.logE("----- DataWrapper.doHandleEvents", "scanResults.size=" + scanResults.size());
-                                //PPApplication.logE("----- DataWrapper.doHandleEvents","-- eventSSID="+event._eventPreferencesWifi._SSID);
+            if (unblockEventsRun) {
+//            PPApplication.logE("[FIFO_TEST] DataWrapper._restartEvents", "(2)");
+                synchronized (profileList) {
+                    // remove alarm for profile duration
+                    if (!profileListFilled)
+                        fillProfileList(false, false);
+                    for (Profile profile : profileList)
+                        ProfileDurationAlarmBroadcastReceiver.removeAlarm(profile, context);
+                }
+                //Profile.setActivatedProfileForDuration(context, 0);
 
-                                for (WifiSSIDData result : scanResults) {
-                                    PPApplication.logE("----- DataWrapper.doHandleEvents", "scanSSID=" + result.ssid);
-                                    PPApplication.logE("----- DataWrapper.doHandleEvents", "scanBSSID=" + result.bssid);
-                                    String[] splits = event._eventPreferencesWifi._SSID.split("\\|");
-                                    for (String _ssid : splits) {
-                                        if (_ssid.equals(EventPreferencesWifi.ALL_SSIDS_VALUE)) {
-                                            PPApplication.logE("----- DataWrapper.doHandleEvents", "all ssids");
-                                            wifiPassed = true;
-                                            break;
-                                        } else if (_ssid.equals(EventPreferencesWifi.CONFIGURED_SSIDS_VALUE)) {
-                                            PPApplication.logE("----- DataWrapper.doHandleEvents", "configured ssids");
-                                            for (WifiSSIDData data : wifiConfigurationList) {
-                                                PPApplication.logE("----- DataWrapper.doHandleEvents", "configured SSID=" + data.ssid.replace("\"", ""));
-                                                if (WifiScanJob.compareSSID(result, data.ssid.replace("\"", ""), wifiConfigurationList)) {
-                                                    PPApplication.logE("----- DataWrapper.doHandleEvents", "wifi found");
-                                                    wifiPassed = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (wifiPassed)
-                                                break;
-                                        } else {
-                                            PPApplication.logE("----- DataWrapper.doHandleEvents", "event SSID=" + event._eventPreferencesWifi._SSID);
-                                            if (WifiScanJob.compareSSID(result, _ssid, wifiConfigurationList)) {
-                                                PPApplication.logE("----- DataWrapper.doHandleEvents", "wifi found");
-                                                wifiPassed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (wifiPassed)
-                                        break;
-                                }
-
-                                PPApplication.logE("----- DataWrapper.doHandleEvents", "wifiPassed=" + wifiPassed);
-
-                                if (event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOTINFRONT)
-                                    // if wifi is not in front of event SSID, then passed
-                                    wifiPassed = !wifiPassed;
-
-                                PPApplication.logE("----- DataWrapper.doHandleEvents", "wifiPassed=" + wifiPassed);
-
-                            } else
-                                PPApplication.logE("----- DataWrapper.doHandleEvents", "scanResults == null");
-                        }
+                Event.setEventsBlocked(context, false);
+                synchronized (eventList) {
+                    fillEventList();
+                    //noinspection ForLoopReplaceableByForEach
+                    for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
+                        Event event = it.next();
+                        if (event != null)
+                            event._blocked = false;
                     }
                 }
+                //PPApplication.logE("DataWrapper._restartEvents", "after synchronized (eventList)");
+
+                DatabaseHandler.getInstance(context).unblockAllEvents();
+                Event.setForceRunEventRunning(context, false);
             }
 
-            PPApplication.logE("----- DataWrapper.doHandleEvents","------- wifiPassed="+wifiPassed);
-
-            //eventStart = eventStart && wifiPassed;
-        }
-        else
-            ignoreWifi = true;
-
-
-        if (event._eventPreferencesScreen._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesScreen.PREF_EVENT_SCREEN_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            boolean isScreenOn;
-            //if (android.os.Build.VERSION.SDK_INT >= 20)
-            //{
-            //	Display display = ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
-            //	isScreenOn = display.getState() != Display.STATE_OFF;
-            //}
-            //else
-            //{
-                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                isScreenOn = pm.isScreenOn();
-            //}
-            boolean keyguardShowing = false;
-
-            if (event._eventPreferencesScreen._whenUnlocked)
-            {
-                KeyguardManager kgMgr = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
-                keyguardShowing = kgMgr.isKeyguardLocked();
-            }
-
-            if (event._eventPreferencesScreen._eventType == EventPreferencesScreen.ETYPE_SCREENON)
-            {
-                if (event._eventPreferencesScreen._whenUnlocked)
-                    // passed if screen is on and unlocked => start only when unlocked
-                    screenPassed = isScreenOn && (!keyguardShowing);
-                else
-                    screenPassed = isScreenOn;
-            }
-            else
-            {
-                if (event._eventPreferencesScreen._whenUnlocked)
-                    // passed if screen is off or locked => locked is the same as screen off
-                    screenPassed = (!isScreenOn) || keyguardShowing;
-                else
-                    screenPassed = !isScreenOn;
-            }
-
-            //eventStart = eventStart && screenPassed;
-        }
-        else
-            ignoreScreen = true;
-
-
-        if (event._eventPreferencesBluetooth._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesBluetooth.PREF_EVENT_BLUETOOTH_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED)
-                && Permissions.checkEventLocation(context, event, null))
-        {
-            bluetoothPassed = false;
-
-            List<BluetoothDeviceData> boundedDevicesList = BluetoothScanJob.getBoundedDevicesList(context);
-
-            boolean done = false;
-
-            BluetoothAdapter bluetooth = BluetoothScanJob.getBluetoothAdapter(context);
-            if (bluetooth != null) {
-                boolean isBluetoothEnabled = bluetooth.isEnabled();
-
-                if (isBluetoothEnabled) {
-                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "bluetoothEnabled=true");
-
-                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "-- eventAdapterName=" + event._eventPreferencesBluetooth._adapterName);
-
-
-                    //List<BluetoothDeviceData> connectedDevices = BluetoothConnectedDevices.getConnectedDevices(context);
-                    BluetoothConnectionBroadcastReceiver.getConnectedDevices(context);
-
-                    if (BluetoothConnectionBroadcastReceiver.isBluetoothConnected(null, "")) {
-                    //if (BluetoothConnectedDevices.isBluetoothConnected(connectedDevices,null, "")) {
-
-                        PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "any device connected");
-
-                        boolean connected = false;
-                        String[] splits = event._eventPreferencesBluetooth._adapterName.split("\\|");
-                        for (String _bluetoothName : splits) {
-                            if (_bluetoothName.equals(EventPreferencesBluetooth.ALL_BLUETOOTH_NAMES_VALUE)) {
-                                PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "any device connected");
-                                connected = true;
-                                break;
-                            } else if (_bluetoothName.equals(EventPreferencesBluetooth.CONFIGURED_BLUETOOTH_NAMES_VALUE)) {
-                                for (BluetoothDeviceData data : boundedDevicesList) {
-                                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "boundedDevice.name="+data.getName());
-                                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "boundedDevice.address="+data.getAddress());
-                                    connected = BluetoothConnectionBroadcastReceiver.isBluetoothConnected(data, "");
-                                    //connected = BluetoothConnectedDevices.isBluetoothConnected(connectedDevices, data, "");
-                                    if (connected)
-                                        break;
-                                }
-                                PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "paired device connected="+connected);
-                            } else {
-                                connected = BluetoothConnectionBroadcastReceiver.isBluetoothConnected(null, _bluetoothName);
-                                //connected = BluetoothConnectedDevices.isBluetoothConnected(connectedDevices,null, _bluetoothName);
-                                PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "event sensor device connected="+connected);
-                            }
-                            if (connected)
-                                break;
-                        }
-
-                        if (connected) {
-                            // event BT adapter is connected
-                            done = true;
-
-                            bluetoothPassed = !((event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTCONNECTED) ||
-                                    (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTINFRONT));
-                        } else {
-                            if (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTCONNECTED) {
-                                // for this connectionTypes, BT must not be connected to event BT adapter
-                                done = true;
-                                bluetoothPassed = true;
-                            }
-                        }
-                    } else {
-                        PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "not any device connected");
-
-                        if (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTCONNECTED) {
-                            // for this connectionTypes, BT must not be connected to event BT adapter
-                            done = true;
-                            bluetoothPassed = true;
-                        }
-                    }
-                } else {
-                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "bluetoothEnabled=true");
-
-                    if ((event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_CONNECTED) ||
-                            (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTCONNECTED)) {
-                        // for this connectionTypes, BT must not be connected to event BT adapter
-                        done = true;
-                        bluetoothPassed = (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTCONNECTED);
-                    }
-                }
-            }
-
-            PPApplication.logE("[BTScan] DataWrapper.doHandleEvents","bluetoothPassed="+bluetoothPassed);
-
-            if ((event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_INFRONT) ||
-                (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTINFRONT))
-            {
-                if (!done) {
-                    if (!ApplicationPreferences.applicationEventBluetoothEnableScannig(context)) {
-                        // ignore for disabled scanning
-                        ignoreBluetooth = true;
-                    }
-                    else {
-                        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                        if (!pm.isScreenOn() && ApplicationPreferences.applicationEventBluetoothScanOnlyWhenScreenIsOn(context)) {
-                            // ignore for screen Off
-                            ignoreBluetooth = true;
-                        } else {
-                            bluetoothPassed = false;
-
-                            List<BluetoothDeviceData> scanResults = BluetoothScanJob.getScanResults(context);
-
-                            if (scanResults != null) {
-                                //PPApplication.logE("@@@ DataWrapper.doHandleEvents","-- eventAdapterName="+event._eventPreferencesBluetooth._adapterName);
-
-                                for (BluetoothDeviceData device : scanResults) {
-                                    String[] splits = event._eventPreferencesBluetooth._adapterName.split("\\|");
-                                    for (String _bluetoothName : splits) {
-                                        if (_bluetoothName.equals(EventPreferencesBluetooth.ALL_BLUETOOTH_NAMES_VALUE)) {
-                                            bluetoothPassed = true;
-                                            break;
-                                        } else if (_bluetoothName.equals(EventPreferencesBluetooth.CONFIGURED_BLUETOOTH_NAMES_VALUE)) {
-                                            for (BluetoothDeviceData data : boundedDevicesList) {
-                                                String _device = device.getName().toUpperCase();
-                                                String _adapterName = data.getName().toUpperCase();
-                                                if (Wildcard.match(_device, _adapterName, '_', '%', true)) {
-                                                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "bluetooth found");
-                                                    //PPApplication.logE("@@@ DataWrapper.doHandleEvents","bluetoothAdapterName="+device.getName());
-                                                    //PPApplication.logE("@@@ DataWrapper.doHandleEvents","bluetoothAddress="+device.getAddress());
-                                                    bluetoothPassed = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (bluetoothPassed)
-                                                break;
-                                        } else {
-                                            String _device = device.getName().toUpperCase();
-                                            if ((device.getName() == null) || device.getName().isEmpty()) {
-                                                // scanned device has not name (hidden BT?)
-                                                if ((device.getAddress() != null) && (!device.getAddress().isEmpty())) {
-                                                    // device has address
-                                                    for (BluetoothDeviceData data : boundedDevicesList) {
-                                                        if ((data.getAddress() != null) && data.getAddress().equals(device.getAddress())) {
-                                                            PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "bluetooth found");
-                                                            //PPApplication.logE("@@@ DataWrapper.doHandleEvents","bluetoothAdapterName="+device.getName());
-                                                            //PPApplication.logE("@@@ DataWrapper.doHandleEvents","bluetoothAddress="+device.getAddress());
-                                                            bluetoothPassed = true;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                String _adapterName = _bluetoothName.toUpperCase();
-                                                if (Wildcard.match(_device, _adapterName, '_', '%', true)) {
-                                                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "bluetooth found");
-                                                    //PPApplication.logE("@@@ DataWrapper.doHandleEvents","bluetoothAdapterName="+device.getName());
-                                                    //PPApplication.logE("@@@ DataWrapper.doHandleEvents","bluetoothAddress="+device.getAddress());
-                                                    bluetoothPassed = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (bluetoothPassed)
-                                        break;
-                                }
-
-                                if (!bluetoothPassed)
-                                    PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "bluetooth not found");
-
-                                if (event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOTINFRONT)
-                                    // if bluetooth is not in front of event BT adapter name, then passed
-                                    bluetoothPassed = !bluetoothPassed;
-                            } else
-                                PPApplication.logE("[BTScan] DataWrapper.doHandleEvents", "scanResults == null");
-
-                        }
-                    }
-                }
-            }
-
-            PPApplication.logE("[BTScan] DataWrapper.doHandleEvents","bluetoothPassed="+bluetoothPassed);
-
-            //eventStart = eventStart && bluetoothPassed;
-        }
-        else
-            ignoreBluetooth = true;
-
-        if ((event._eventPreferencesSMS._enabled) &&
-                (Event.isEventPreferenceAllowed(EventPreferencesSMS.PREF_EVENT_SMS_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED)
-                && Permissions.checkEventSMSContacts(context, event, null) &&
-                Permissions.checkEventSMSBroadcast(context, event, null))
-        {
-            // compute start time
-
-            if (event._eventPreferencesSMS._startTime > 0) {
-                int gmtOffset = 0; //TimeZone.getDefault().getRawOffset();
-                long startTime = event._eventPreferencesSMS._startTime - gmtOffset;
-
-                if (PPApplication.logEnabled()) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                    String alarmTimeS = sdf.format(startTime);
-                    PPApplication.logE("DataWrapper.doHandleEvents", "startTime=" + alarmTimeS);
-                }
-
-                // compute end datetime
-                long endAlarmTime = event._eventPreferencesSMS.computeAlarm();
-                if (PPApplication.logEnabled()) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                    String alarmTimeS = sdf.format(endAlarmTime);
-                    PPApplication.logE("DataWrapper.doHandleEvents", "endAlarmTime=" + alarmTimeS);
-                }
-
-                Calendar now = Calendar.getInstance();
-                long nowAlarmTime = now.getTimeInMillis();
-                if (PPApplication.logEnabled()) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                    String alarmTimeS = sdf.format(nowAlarmTime);
-                    PPApplication.logE("DataWrapper.doHandleEvents", "nowAlarmTime=" + alarmTimeS);
-                }
-
-                if (sensorType.equals(EventsHandler.SENSOR_TYPE_SMS))
-                    smsPassed = true;
-                else if (!event._eventPreferencesSMS._permanentRun) {
-                    if (sensorType.equals(EventsHandler.SENSOR_TYPE_SMS_EVENT_END))
-                        smsPassed = false;
-                    else
-                        smsPassed = ((nowAlarmTime >= startTime) && (nowAlarmTime < endAlarmTime));
-                }
-                else {
-                    smsPassed = nowAlarmTime >= startTime;
-                }
-            }
-            else
-                smsPassed = false;
-
-            if (!smsPassed) {
-                event._eventPreferencesSMS._startTime = 0;
-                DatabaseHandler.getInstance(context).updateSMSStartTime(event);
-            }
-        }
-        else
-            ignoreSms = true;
-
-        if (event._eventPreferencesNotification._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesNotification.PREF_EVENT_NOTIFICATION_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-                /*if (!event._eventPreferencesNotification._endWhenRemoved) {
-
-                    if (event._eventPreferencesNotification._startTime > 0) {
-                        // compute start time
-                        int gmtOffset = 0; //TimeZone.getDefault().getRawOffset();
-                        long startTime = event._eventPreferencesNotification._startTime - gmtOffset;
-
-                        SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                        String alarmTimeS = sdf.format(startTime);
-                        PPApplication.logE("[NOTIF] DataWrapper.doHandleEvents", "startTime=" + alarmTimeS);
-
-                        // compute end datetime
-                        long endAlarmTime = event._eventPreferencesNotification.computeAlarm();
-                        alarmTimeS = sdf.format(endAlarmTime);
-                        PPApplication.logE("[NOTIF] DataWrapper.doHandleEvents", "endAlarmTime=" + alarmTimeS);
-
-                        Calendar now = Calendar.getInstance();
-                        long nowAlarmTime = now.getTimeInMillis();
-                        alarmTimeS = sdf.format(nowAlarmTime);
-                        PPApplication.logE("[NOTIF] DataWrapper.doHandleEvents", "nowAlarmTime=" + alarmTimeS);
-
-                        if (sensorType.equals(EventsHandler.SENSOR_TYPE_NOTIFICATION))
-                            notificationPassed = true;
-                        else if (!event._eventPreferencesNotification._permanentRun) {
-                            if (sensorType.equals(EventsHandler.SENSOR_TYPE_NOTIFICATION_EVENT_END)) {
-                                notificationPassed = false;
-                            }
-                            else
-                                notificationPassed = ((nowAlarmTime >= startTime) && (nowAlarmTime < endAlarmTime));
-                        }
-                        else
-                            notificationPassed = nowAlarmTime >= startTime;
-                    } else
-                        notificationPassed = false;
-                } else {*/
-                    notificationPassed = event._eventPreferencesNotification.isNotificationVisible(this);
-                //}
-
-                PPApplication.logE("[NOTIF] DataWrapper.doHandleEvents", "notificationPassed=" + notificationPassed);
-
-                /*if (!notificationPassed) {
-                    event._eventPreferencesNotification._startTime = 0;
-                    DatabaseHandler.getInstance(context).updateNotificationStartTime(event);
-                }*/
-            /*}
-            else {
-                ignoreNotification = true;
+            /*if (!notClearActivatedProfile) {
+                DatabaseHandler.getInstance(context).deactivateProfile();
+                setProfileActive(null);
             }*/
-        }
-        else
-            ignoreNotification = true;
 
+            //PPApplication.logE("****** EventsHandler.handleEvents", "START run - from=DataWrapper._restartEvents (2)");
 
-        if (event._eventPreferencesApplication._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesApplication.PREF_EVENT_APPLICATION_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            applicationPassed = false;
+//        PPApplication.logE("[FIFO_TEST] DataWrapper._restartEvents", "(3)");
+//        PPApplication.logE("[APP_START] DataWrapper._restartEvents", "(2)");
 
-            if (AccessibilityServiceBroadcastReceiver.isEnabled(context.getApplicationContext(), PPApplication.VERSION_CODE_EXTENDER_1_0_4)) {
-                String foregroundApplication = AccessibilityServiceBroadcastReceiver.getApplicationInForeground(context);
-
-                if (!foregroundApplication.isEmpty()) {
-                    String[] splits = event._eventPreferencesApplication._applications.split("\\|");
-                    for (String split : splits) {
-                        String packageName = ApplicationsCache.getPackageName(split);
-
-                        if (foregroundApplication.equals(packageName)) {
-                            applicationPassed = true;
-                            break;
-                        }
-                    }
-                } else
-                    ignoreApplication = true;
-            }
-            else
-                ignoreApplication = true;
-        }
-        else
-            ignoreApplication = true;
-
-        if (event._eventPreferencesLocation._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesLocation.PREF_EVENT_LOCATION_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED)
-                && Permissions.checkEventLocation(context, event, null))
-        {
-            if (!ApplicationPreferences.applicationEventLocationEnableScannig(context)) {
-                // ignore for disabled location scanner
-                PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "ignore for disabled scanner");
-                ignoreLocation = true;
-            }
-            else{
-                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                if (!pm.isScreenOn() && ApplicationPreferences.applicationEventLocationScanOnlyWhenScreenIsOn(context)) {
-                    // ignore for screen Off
-                    PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "ignore for screen off");
-                    ignoreLocation = true;
-                } else {
-                    synchronized (PPApplication.geofenceScannerMutex) {
-                        if ((PhoneProfilesService.instance != null) && PhoneProfilesService.isGeofenceScannerStarted() &&
-                                PhoneProfilesService.getGeofencesScanner().mTransitionsUpdated) {
-                            locationPassed = false;
-
-                            String[] splits = event._eventPreferencesLocation._geofences.split("\\|");
-                            PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "--------");
-                            PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "_eventPreferencesLocation._geofences=" + event._eventPreferencesLocation._geofences);
-                            for (String _geofence : splits) {
-                                if (!_geofence.isEmpty()) {
-                                    PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "geofence=" + DatabaseHandler.getInstance(context).getGeofenceName(Long.valueOf(_geofence)));
-
-                                    int geofenceTransition = DatabaseHandler.getInstance(context).getGeofenceTransition(Long.valueOf(_geofence));
-                                    if (geofenceTransition == com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER)
-                                        PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "transitionType=GEOFENCE_TRANSITION_ENTER");
-                                    else
-                                        PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "transitionType=GEOFENCE_TRANSITION_EXIT");
-
-                                    if (geofenceTransition == com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER) {
-                                        locationPassed = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            PPApplication.logE("[GeoSensor] DataWrapper.doHandleEvents", "locationPassed=" + locationPassed);
-
-                            if (event._eventPreferencesLocation._whenOutside)
-                                locationPassed = !locationPassed;
-                        } else {
-                            ignoreLocation = true;
-                        }
-                    }
-                }
-            }
-        }
-        else
-            ignoreLocation = true;
-
-        if (event._eventPreferencesOrientation._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesOrientation.PREF_EVENT_ORIENTATION_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            ApplicationPreferences.getSharedPreferences(context);
-            int callEventType = ApplicationPreferences.preferences.getInt(PhoneCallBroadcastReceiver.PREF_EVENT_CALL_EVENT_TYPE, PhoneCallBroadcastReceiver.CALL_EVENT_UNDEFINED);
-
-            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-            if (/*Permissions.checkEventPhoneBroadcast(context, event) &&*/
-                (callEventType != PhoneCallBroadcastReceiver.CALL_EVENT_UNDEFINED) &&
-                (callEventType != PhoneCallBroadcastReceiver.CALL_EVENT_INCOMING_CALL_ENDED) &&
-                (callEventType != PhoneCallBroadcastReceiver.CALL_EVENT_OUTGOING_CALL_ENDED)) {
-                // ignore changes during call
-                ignoreOrientation = true;
-            }
-            else
-            if (!ApplicationPreferences.applicationEventOrientationEnableScannig(context)) {
-                ignoreOrientation = true;
-            }
-            else
-            if (!pm.isScreenOn() && ApplicationPreferences.applicationEventOrientationScanOnlyWhenScreenIsOn(context)) {
-                    // ignore for screen Off
-                    ignoreOrientation = true;
-            }
-            else
-            {
-                synchronized (PPApplication.orientationScannerMutex) {
-                    if ((PhoneProfilesService.instance != null) && PhoneProfilesService.isOrientationScannerStarted()) {
-                        boolean lApplicationPassed = false;
-                        if (AccessibilityServiceBroadcastReceiver.isEnabled(context.getApplicationContext(), PPApplication.VERSION_CODE_EXTENDER_1_0_4)) {
-                            String foregroundApplication = AccessibilityServiceBroadcastReceiver.getApplicationInForeground(context);
-                            if (!foregroundApplication.isEmpty()) {
-                                String[] splits = event._eventPreferencesOrientation._ignoredApplications.split("\\|");
-                                for (String split : splits) {
-                                    String packageName = ApplicationsCache.getPackageName(split);
-
-                                    if (foregroundApplication.equals(packageName)) {
-                                        lApplicationPassed = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if (!lApplicationPassed) {
-
-                            boolean lDisplayPassed = true;
-                            boolean lSidePassed = true;
-
-                            boolean enabledAccelerometer = PhoneProfilesService.getAccelerometerSensor(context) != null;
-                            boolean enabledMagneticField = PhoneProfilesService.getMagneticFieldSensor(context) != null;
-                            boolean enabledAll = (enabledAccelerometer) && (enabledMagneticField);
-                            if (enabledAccelerometer) {
-                                if (!event._eventPreferencesOrientation._display.isEmpty()) {
-                                    String[] splits = event._eventPreferencesOrientation._display.split("\\|");
-                                    if (splits.length > 0) {
-                                        lDisplayPassed = false;
-                                        for (String split : splits) {
-                                            try {
-                                                int side = Integer.valueOf(split);
-                                                if (side == PhoneProfilesService.mDisplayUp) {
-                                                    lDisplayPassed = true;
-                                                    break;
-                                                }
-                                            } catch (Exception ignored) {
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (enabledAll) {
-                                if (!event._eventPreferencesOrientation._sides.isEmpty()) {
-                                    String[] splits = event._eventPreferencesOrientation._sides.split("\\|");
-                                    if (splits.length > 0) {
-                                        lSidePassed = false;
-                                        for (String split : splits) {
-                                            try {
-                                                int side = Integer.valueOf(split);
-                                                if (side == PhoneProfilesService.DEVICE_ORIENTATION_HORIZONTAL) {
-                                                    if (PhoneProfilesService.mSideUp == PhoneProfilesService.mDisplayUp) {
-                                                        lSidePassed = true;
-                                                        break;
-                                                    }
-                                                } else {
-                                                    if (side == PhoneProfilesService.mSideUp) {
-                                                        lSidePassed = true;
-                                                        break;
-                                                    }
-                                                }
-                                            } catch (Exception ignored) {
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            boolean lDistancePassed = true;
-                            boolean enabled = PhoneProfilesService.getProximitySensor(context) != null;
-                            if (enabled) {
-                                if (event._eventPreferencesOrientation._distance != 0) {
-                                    lDistancePassed = event._eventPreferencesOrientation._distance == PhoneProfilesService.mDeviceDistance;
-                                }
-                            }
-
-                            //Log.d("**** DataWrapper.doHandleEvents","lDisplayPassed="+lDisplayPassed);
-                            //Log.d("**** DataWrapper.doHandleEvents","lSidePassed="+lSidePassed);
-                            //Log.d("**** DataWrapper.doHandleEvents","lDistancePassed="+lDistancePassed);
-
-
-                            orientationPassed = lDisplayPassed && lSidePassed && lDistancePassed;
-                        } else {
-                            ignoreOrientation = true;
-                        }
-                    } else {
-                        ignoreOrientation = true;
-                    }
-                }
-            }
-        }
-        else
-            ignoreOrientation = true;
-
-        if (event._eventPreferencesMobileCells._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesMobileCells.PREF_EVENT_MOBILE_CELLS_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED)
-                && Permissions.checkEventLocation(context, event, null))
-        {
-            if (!ApplicationPreferences.applicationEventMobileCellEnableScannig(context)) {
-                ignoreMobileCell = true;
-            }
-            else {
-                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                if (!pm.isScreenOn() && ApplicationPreferences.applicationEventMobileCellScanOnlyWhenScreenIsOn(context)) {
-                    // ignore for screen Off
-                    ignoreMobileCell = true;
-                } else {
-                    synchronized (PPApplication.phoneStateScannerMutex) {
-                        if ((PhoneProfilesService.instance != null) && PhoneProfilesService.isPhoneStateScannerStarted()) {
-                            String[] splits = event._eventPreferencesMobileCells._cells.split("\\|");
-                            if (PhoneProfilesService.phoneStateScanner.registeredCell != Integer.MAX_VALUE) {
-                                String registeredCell = Integer.toString(PhoneProfilesService.phoneStateScanner.registeredCell);
-                                boolean found = false;
-                                for (String cell : splits) {
-                                    if (cell.equals(registeredCell)) {
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                                mobileCellPassed = found;
-                            } else
-                                ignoreMobileCell = true;
-
-                            if (event._eventPreferencesMobileCells._whenOutside)
-                                mobileCellPassed = !mobileCellPassed;
-                        } else
-                            ignoreMobileCell = true;
-                    }
-                }
-            }
-        }
-        else
-            ignoreMobileCell = true;
-
-        if (event._eventPreferencesNFC._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesNFC.PREF_EVENT_NFC_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            // compute start time
-
-            if (event._eventPreferencesNFC._startTime > 0) {
-                int gmtOffset = 0; //TimeZone.getDefault().getRawOffset();
-                long startTime = event._eventPreferencesNFC._startTime - gmtOffset;
-
-                if (PPApplication.logEnabled()) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                    String alarmTimeS = sdf.format(startTime);
-                    PPApplication.logE("DataWrapper.doHandleEvents", "startTime=" + alarmTimeS);
-                }
-
-                // compute end datetime
-                long endAlarmTime = event._eventPreferencesNFC.computeAlarm();
-                if (PPApplication.logEnabled()) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                    String alarmTimeS = sdf.format(endAlarmTime);
-                    PPApplication.logE("DataWrapper.doHandleEvents", "endAlarmTime=" + alarmTimeS);
-                }
-
-                Calendar now = Calendar.getInstance();
-                long nowAlarmTime = now.getTimeInMillis();
-                if (PPApplication.logEnabled()) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("EE d.MM.yyyy HH:mm:ss:S");
-                    String alarmTimeS = sdf.format(nowAlarmTime);
-                    PPApplication.logE("DataWrapper.doHandleEvents", "nowAlarmTime=" + alarmTimeS);
-                }
-
-                if (sensorType.equals(EventsHandler.SENSOR_TYPE_NFC_TAG))
-                    nfcPassed = true;
-                else if (!event._eventPreferencesNFC._permanentRun) {
-                    if (sensorType.equals(EventsHandler.SENSOR_TYPE_NFC_EVENT_END))
-                        nfcPassed = false;
-                    else
-                        nfcPassed = ((nowAlarmTime >= startTime) && (nowAlarmTime < endAlarmTime));
-                }
-                else
-                    nfcPassed = nowAlarmTime >= startTime;
-            }
-            else
-                nfcPassed = false;
-
-            if (!nfcPassed) {
-                event._eventPreferencesNFC._startTime = 0;
-                DatabaseHandler.getInstance(context).updateNFCStartTime(event);
-            }
-        }
-        else
-            ignoreNfc = true;
-
-        if (event._eventPreferencesRadioSwitch._enabled &&
-                (Event.isEventPreferenceAllowed(EventPreferencesRadioSwitch.PREF_EVENT_RADIO_SWITCH_ENABLED, context) == PPApplication.PREFERENCE_ALLOWED))
-        {
-            radioSwitchPassed = true;
-            boolean tested = false;
-
-            if ((event._eventPreferencesRadioSwitch._wifi == 1 || event._eventPreferencesRadioSwitch._wifi == 2)
-                    && PPApplication.hasSystemFeature(context, PackageManager.FEATURE_WIFI)) {
-
-                if (!((WifiScanJob.getScanRequest(context)) ||
-                        (WifiScanJob.getWaitForResults(context)) ||
-                        (WifiScanJob.getWifiEnabledForScan(context)))) {
-                    // ignore for wifi scanning
-
-                    WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-                    int wifiState = wifiManager.getWifiState();
-                    boolean enabled = ((wifiState == WifiManager.WIFI_STATE_ENABLED) || (wifiState == WifiManager.WIFI_STATE_ENABLING));
-                    PPApplication.logE("-###- DataWrapper.doHandleEvents", "wifiState=" + enabled);
-                    tested = true;
-                    if (event._eventPreferencesRadioSwitch._wifi == 1)
-                        radioSwitchPassed = radioSwitchPassed && enabled;
-                    else
-                        radioSwitchPassed = radioSwitchPassed && !enabled;
-                }
-                else
-                    ignoreRadioSwitch = true;
+            EventsHandler eventsHandler = new EventsHandler(context);
+            if (manualRestart) {
+//                PPApplication.logE("[EVENTS_HANDLER_CALL] DataWrapper._restartEvents", "sensorType=SENSOR_TYPE_MANUAL_RESTART_EVENTS");
+//           PPApplication.logE("[FIFO_TEST] DataWrapper._restartEvents", "(4)");
+                eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_MANUAL_RESTART_EVENTS);
+            } else {
+//                PPApplication.logE("[EVENTS_HANDLER_CALL] DataWrapper._restartEvents", "sensorType=SENSOR_TYPE_RESTART_EVENTS");
+//            PPApplication.logE("[FIFO_TEST] DataWrapper._restartEvents", "(5)");
+                eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_RESTART_EVENTS);
             }
 
-            if ((event._eventPreferencesRadioSwitch._bluetooth == 1 || event._eventPreferencesRadioSwitch._bluetooth == 2)
-                    && PPApplication.hasSystemFeature(context, PackageManager.FEATURE_BLUETOOTH)) {
-
-                if (!((BluetoothScanJob.getScanRequest(context)) ||
-                        (BluetoothScanJob.getLEScanRequest(context)) ||
-                        (BluetoothScanJob.getWaitForResults(context)) ||
-                        (BluetoothScanJob.getWaitForLEResults(context)) ||
-                        (BluetoothScanJob.getBluetoothEnabledForScan(context)))) {
-                    // ignore for bluetooth scanning
-
-
-                    BluetoothAdapter bluetoothAdapter = BluetoothScanJob.getBluetoothAdapter(context);
-                    if (bluetoothAdapter != null) {
-                        boolean enabled = bluetoothAdapter.isEnabled();
-                        PPApplication.logE("-###- DataWrapper.doHandleEvents", "bluetoothState=" + enabled);
-                        tested = true;
-                        if (event._eventPreferencesRadioSwitch._bluetooth == 1)
-                            radioSwitchPassed = radioSwitchPassed && enabled;
-                        else
-                            radioSwitchPassed = radioSwitchPassed && !enabled;
-                    }
-                }
-                else
-                    ignoreRadioSwitch = true;
-            }
-
-            if ((event._eventPreferencesRadioSwitch._mobileData == 1 || event._eventPreferencesRadioSwitch._mobileData == 2)
-                    && PPApplication.hasSystemFeature(context, PackageManager.FEATURE_TELEPHONY)) {
-
-                boolean enabled = ActivateProfileHelper.isMobileData(context);
-                PPApplication.logE("-###- DataWrapper.doHandleEvents", "mobileDataState=" + enabled);
-                tested = true;
-                if (event._eventPreferencesRadioSwitch._mobileData == 1)
-                    radioSwitchPassed = radioSwitchPassed && enabled;
-                else
-                    radioSwitchPassed = radioSwitchPassed && !enabled;
-            }
-
-            if ((event._eventPreferencesRadioSwitch._gps == 1 || event._eventPreferencesRadioSwitch._gps == 2)
-                    && PPApplication.hasSystemFeature(context, PackageManager.FEATURE_LOCATION_GPS)) {
-
-                boolean enabled;
-                /*if (android.os.Build.VERSION.SDK_INT < 19)
-                    enabled = Settings.Secure.isLocationProviderEnabled(context.getContentResolver(), LocationManager.GPS_PROVIDER);
-                else {*/
-                    LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-                    enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-                //}
-                PPApplication.logE("-###- DataWrapper.doHandleEvents", "gpsState=" + enabled);
-                tested = true;
-                if (event._eventPreferencesRadioSwitch._gps == 1)
-                    radioSwitchPassed = radioSwitchPassed && enabled;
-                else
-                    radioSwitchPassed = radioSwitchPassed && !enabled;
-            }
-
-            if ((event._eventPreferencesRadioSwitch._nfc == 1 || event._eventPreferencesRadioSwitch._nfc == 2)
-                    && PPApplication.hasSystemFeature(context, PackageManager.FEATURE_NFC)) {
-
-                NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(context);
-                if (nfcAdapter != null) {
-                    boolean enabled = nfcAdapter.isEnabled();
-                    PPApplication.logE("-###- DataWrapper.doHandleEvents", "nfcState=" + enabled);
-                    tested = true;
-                    if (event._eventPreferencesRadioSwitch._nfc == 1)
-                        radioSwitchPassed = radioSwitchPassed && enabled;
-                    else
-                        radioSwitchPassed = radioSwitchPassed && !enabled;
-                }
-            }
-
-            if (event._eventPreferencesRadioSwitch._airplaneMode == 1 || event._eventPreferencesRadioSwitch._airplaneMode == 2) {
-
-                boolean enabled = ActivateProfileHelper.isAirplaneMode(context);
-                PPApplication.logE("-###- DataWrapper.doHandleEvents", "airplaneModeState=" + enabled);
-                tested = true;
-                if (event._eventPreferencesRadioSwitch._airplaneMode == 1)
-                    radioSwitchPassed = radioSwitchPassed && enabled;
-                else
-                    radioSwitchPassed = radioSwitchPassed && !enabled;
-            }
-
-            radioSwitchPassed = radioSwitchPassed && tested;
-        }
-        else
-            ignoreRadioSwitch = true;
-
-        List<EventTimeline> eventTimelineList = getEventTimelineList();
-
-        boolean allPassed = true;
-        boolean allIgnored = true;
-        if (!ignoreTime) {
-            allPassed &= timePassed;
-            allIgnored = false;
-        }
-        if (!ignoreBattery) {
-            allPassed &= batteryPassed;
-            allIgnored = false;
-        }
-        if (!ignoreCall) {
-            allPassed &= callPassed;
-            allIgnored = false;
-        }
-        if (!ignorePeripheral) {
-            allPassed &= peripheralPassed;
-            allIgnored = false;
-        }
-        if (!ignoreCalendar) {
-            allPassed &= calendarPassed;
-            allIgnored = false;
-        }
-        if (!ignoreWifi) {
-            allPassed &= wifiPassed;
-            allIgnored = false;
-        }
-        if (!ignoreScreen) {
-            allPassed &= screenPassed;
-            allIgnored = false;
-        }
-        if (!ignoreBluetooth) {
-            allPassed &= bluetoothPassed;
-            allIgnored = false;
-        }
-        if (!ignoreSms) {
-            allPassed &= smsPassed;
-            allIgnored = false;
-        }
-        if (!ignoreNotification) {
-            allPassed &= notificationPassed;
-            allIgnored = false;
-        }
-        if (!ignoreApplication) {
-            allPassed &= applicationPassed;
-            allIgnored = false;
-        }
-        if (!ignoreLocation) {
-            allPassed &= locationPassed;
-            allIgnored = false;
-        }
-        if (!ignoreOrientation) {
-            allPassed &= orientationPassed;
-            allIgnored = false;
-        }
-        if (!ignoreMobileCell) {
-            allPassed &= mobileCellPassed;
-            allIgnored = false;
-        }
-        if (!ignoreNfc) {
-            allPassed &= nfcPassed;
-            allIgnored = false;
-        }
-        if (!ignoreRadioSwitch) {
-            allPassed &= radioSwitchPassed;
-            allIgnored = false;
-        }
-
-        PPApplication.logE("DataWrapper.doHandleEvents","timePassed="+timePassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","batteryPassed="+batteryPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","callPassed="+callPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","peripheralPassed="+peripheralPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","calendarPassed="+calendarPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","wifiPassed="+wifiPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","screenPassed="+screenPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","bluetoothPassed="+bluetoothPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","smsPassed="+smsPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","notificationPassed="+notificationPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","applicationPassed="+applicationPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","locationPassed="+locationPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","orientationPassed="+orientationPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","mobileCellPassed="+mobileCellPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","nfcPassed="+nfcPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","radioSwitchPassed="+radioSwitchPassed);
-
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreTime="+ignoreTime);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreBattery="+ignoreBattery);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreCall="+ignoreCall);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignorePeripheral="+ignorePeripheral);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreCalendar="+ignoreCalendar);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreWifi="+ignoreWifi);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreScreen="+ignoreScreen);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreBluetooth="+ignoreBluetooth);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreSms="+ignoreSms);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreNotification="+ignoreNotification);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreApplication="+ignoreApplication);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreLocation="+ignoreLocation);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreOrientation="+ignoreOrientation);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreMobileCell="+ignoreMobileCell);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreNfc="+ignoreNfc);
-        PPApplication.logE("DataWrapper.doHandleEvents","ignoreRadioSwitch="+ignoreRadioSwitch);
-
-        PPApplication.logE("DataWrapper.doHandleEvents","allPassed="+allPassed);
-        PPApplication.logE("DataWrapper.doHandleEvents","allIgnored="+allIgnored);
-
-        //PPApplication.logE("DataWrapper.doHandleEvents","eventStart="+eventStart);
-        PPApplication.logE("DataWrapper.doHandleEvents","restartEvent="+restartEvent);
-        PPApplication.logE("DataWrapper.doHandleEvents","statePause="+statePause);
-
-        if (!allIgnored) {
-            // if all sensors are not ignored, do event start/pause
-            // ignore all sensors = do not change event status
-
-            if (allPassed) {
-                // all sensors are passed
-
-                //if (eventStart)
-                newEventStatus = Event.ESTATUS_RUNNING;
-                //else
-                //    newEventStatus = Event.ESTATUS_PAUSE;
-
-            } else
-                newEventStatus = Event.ESTATUS_PAUSE;
-
-            PPApplication.logE("[***] DataWrapper.doHandleEvents", "event.getStatus()=" + event.getStatus());
-            PPApplication.logE("[***] DataWrapper.doHandleEvents", "newEventStatus=" + newEventStatus);
-
-            //PPApplication.logE("@@@ DataWrapper.doHandleEvents","restartEvent="+restartEvent);
-
-            if ((event.getStatus() != newEventStatus) || restartEvent || event._isInDelayStart || event._isInDelayEnd) {
-                PPApplication.logE("[***] DataWrapper.doHandleEvents", " do new event status");
-
-                if ((newEventStatus == Event.ESTATUS_RUNNING) && (!statePause)) {
-                    PPApplication.logE("[***] DataWrapper.doHandleEvents", "start event");
-                    PPApplication.logE("[***] DataWrapper.doHandleEvents", "event._name=" + event._name);
-
-                    if (event._isInDelayEnd)
-                        event.removeDelayEndAlarm(this);
-                    else {
-                        if (!forDelayStartAlarm) {
-                            // called not for delay alarm
-                            /*if (restartEvent) {
-                                event._isInDelayStart = false;
-                            } else*/ {
-                                if (!event._isInDelayStart) {
-                                    // if not delay alarm is set, set it
-                                    event.setDelayStartAlarm(this); // for start delay
-                                }
-                                if (event._isInDelayStart) {
-                                    // if delay expires, start event
-                                    event.checkDelayStart(/*this*/);
-                                }
-                            }
-                            PPApplication.logE("[***] DataWrapper.doHandleEvents", "event._isInDelayStart=" + event._isInDelayStart);
-                            if (!event._isInDelayStart) {
-                                // no delay alarm is set
-                                // start event
-                                event.startEvent(this, eventTimelineList, /*interactive,*/ reactivate, mergedProfile);
-                                PPApplication.logE("[***] DataWrapper.doHandleEvents", "mergedProfile._id=" + mergedProfile._id);
-                            }
-                        }
-
-                        if (forDelayStartAlarm && event._isInDelayStart) {
-                            // called for delay alarm
-                            // start event
-                            event.startEvent(this, eventTimelineList, /*interactive,*/ reactivate, mergedProfile);
-                        }
-                    }
-                } else if (((newEventStatus == Event.ESTATUS_PAUSE) || restartEvent) && statePause) {
-                    // when pausing and it is for restart events, force pause
-
-                    PPApplication.logE("[***] DataWrapper.doHandleEvents", "pause event");
-                    PPApplication.logE("[***] DataWrapper.doHandleEvents", "event._name=" + event._name);
-
-                    if (event._isInDelayStart) {
-                        PPApplication.logE("[***] DataWrapper.doHandleEvents", "isInDelayStart");
-                        event.removeDelayStartAlarm(this);
-                    }
-                    else {
-                        if (!forDelayEndAlarm) {
-                            PPApplication.logE("[***] DataWrapper.doHandleEvents", "!forDelayEndAlarm");
-                            // called not for delay alarm
-                            if (restartEvent) {
-                                event._isInDelayEnd = false;
-                            } else {
-                                if (!event._isInDelayEnd) {
-                                    // if not delay alarm is set, set it
-                                    event.setDelayEndAlarm(this); // for end delay
-                                }
-                                if (event._isInDelayEnd) {
-                                    // if delay expires, pause event
-                                    event.checkDelayEnd(/*this*/);
-                                }
-                            }
-                            if (!event._isInDelayEnd) {
-                                // no delay alarm is set
-                                // pause event
-                                event.pauseEvent(this, eventTimelineList, true, false,
-                                        false, true, mergedProfile, !restartEvent);
-                            }
-                        }
-
-                        if (forDelayEndAlarm && event._isInDelayEnd) {
-                            // called for delay alarm
-                            // pause event
-                            event.pauseEvent(this, eventTimelineList, true, false,
-                                    false, true, mergedProfile, !restartEvent);
-                        }
-                    }
-                }
-            }
-        }
-
-        PPApplication.logE("%%% DataWrapper.doHandleEvents","--- end --------------------------");
+            //PPApplication.logE("****** EventsHandler.handleEvents", "END run - from=DataWrapper._restartEvents (2)");
+//        }
     }
 
-    void restartEvents(boolean unblockEventsRun, boolean keepActivatedProfile/*, final boolean interactive*/)
+    private void restartEvents(final boolean unblockEventsRun, /*final boolean notClearActivatedProfile,*/
+                       /*final boolean reactivateProfile,*/ final boolean manualRestart, final boolean logRestart
+                       /*, final boolean useHandler*/)
     {
-        if (!Event.getGlobalEventsRunning(context))
+//        PPApplication.logE("[FIFO_TEST] DataWrapper.restartEvents","xxx");
+//        PPApplication.logE("[APP_START] DataWrapper.restartEvents", "START");
+
+        /*if (!Event.getGlobalEventsRunning()) {
             // events are globally stopped
+
+            if (PhoneProfilesService.getInstance() != null)
+                PhoneProfilesService.getInstance().willBeDoRestartEvents = false;
+
             return;
+        }*/
 
-        PPApplication.logE("$$$ restartEvents", "in DataWrapper.restartEvents");
+        /*
+        PPApplication.logE("DataWrapper.restartEvents", "useHandler="+useHandler);
 
-        if (Event.getEventsBlocked(context) && (!unblockEventsRun)) {
-            //EventsHandlerJob.startForSensor(context, EventsHandler.SENSOR_TYPE_START_EVENTS_SERVICE);
+        if (useHandler) {
             final Context appContext = context.getApplicationContext();
-            PPApplication.startHandlerThread("DataWrapper.restartEvents.1");
+            PPApplication.startHandlerThread("DataWrapper.restartEvents");
             final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
             handler.post(new Runnable() {
                 @Override
                 public void run() {
                     PowerManager powerManager = (PowerManager) appContext.getSystemService(POWER_SERVICE);
                     PowerManager.WakeLock wakeLock = null;
+                    try {
+                        if (powerManager != null) {
+                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_restartEvents");
+                            wakeLock.acquire(10 * 60 * 1000);
+                        }
+
+                        PPApplication.logE("PPApplication.startHandlerThread", "START run - from=DataWrapper.restartEvents");
+
+                        _restartEvents(unblockEventsRun, notClearActivatedProfile, reactivateProfile, log);
+
+                        PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.restartEvents");
+                    } finally {
+                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                            try {
+                                wakeLock.release();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        else
+        */
+            _restartEvents(unblockEventsRun, /*notClearActivatedProfile, reactivateProfile,*/ manualRestart, logRestart);
+    }
+
+    private void _restartEventsWithRescan(boolean alsoRescan, boolean unblockEventsRun, boolean manualRestart, boolean logRestart) {
+//        PPApplication.logE("[FIFO_TEST] DataWrapper._restartEventsWithRescan","xxx");
+//        PPApplication.logE("[APP_START] DataWrapper._restartEventsWithRescan", "START");
+
+        if (alsoRescan) {
+            // remove all event delay alarms
+            resetAllEventsInDelayStart(false);
+            resetAllEventsInDelayEnd(false);
+        }
+
+        restartEvents(unblockEventsRun, /*true, true,*/ manualRestart, logRestart/*, false*/);
+
+        if (alsoRescan) {
+            //PPApplication.logE("[RJS] DataWrapper._restartEventsWithRescan", "restart all scanners");
+            // for screenOn=true -> used only for Location scanner - start scan with GPS On
+            boolean restart = false;
+            if (ApplicationPreferences.applicationEventLocationEnableScanning)
+                restart = true;
+            else if (ApplicationPreferences.applicationEventWifiEnableScanning)
+                restart = true;
+            else if (ApplicationPreferences.applicationEventBluetoothEnableScanning)
+                restart = true;
+            else if (ApplicationPreferences.applicationEventMobileCellEnableScanning)
+                restart = true;
+            else if (ApplicationPreferences.applicationEventOrientationEnableScanning)
+                restart = true;
+            else if (ApplicationPreferences.applicationEventBackgroundScanningEnableScanning)
+                restart = true;
+            if (restart) {
+                PPApplication.rescanAllScanners(context);
+            }
+        }
+
+        DrawOverAppsPermissionNotification.showNotification(context, false);
+        IgnoreBatteryOptimizationNotification.showNotification(context, false);
+    }
+
+    void restartEventsWithRescan(final boolean alsoRescan,
+            final boolean unblockEventsRun, boolean useHandler,
+            final boolean manualRestart, final boolean logRestart, boolean showToast)
+    {
+//        PPApplication.logE("[FIFO_TEST] DataWrapper.restartEventsWithRescan","xxx");
+//        PPApplication.logE("[APP_START] DataWrapper.restartEventsWithRescan", "START");
+
+        if (useHandler) {
+            final DataWrapper dataWrapper = copyDataWrapper();
+
+            PPApplication.startHandlerThread(/*"DataWrapper.restartEventsWithRescan"*/);
+            final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
+            handler.post(() -> {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.restartEventsWithRescan");
+
+                PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+                PowerManager.WakeLock wakeLock = null;
+                try {
                     if (powerManager != null) {
-                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DataWrapper.restartEvents.1");
+                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_restartEventsWithRescan");
                         wakeLock.acquire(10 * 60 * 1000);
                     }
 
-                    EventsHandler eventsHandler = new EventsHandler(appContext);
-                    eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_START_EVENTS_SERVICE/*, false*/);
+                    dataWrapper._restartEventsWithRescan(alsoRescan, unblockEventsRun, manualRestart, logRestart);
 
-                    if ((wakeLock != null) && wakeLock.isHeld())
-                        wakeLock.release();
+                    //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.restartEventsWithRescan");
+                } catch (Exception e) {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                    PPApplication.recordException(e);
+                } finally {
+                    if ((wakeLock != null) && wakeLock.isHeld()) {
+                        try {
+                            wakeLock.release();
+                        } catch (Exception ignored) {
+                        }
+                    }
                 }
             });
-            return;
         }
+        else
+            _restartEventsWithRescan(alsoRescan, unblockEventsRun, manualRestart, logRestart);
 
-        PPApplication.logE("DataWrapper.restartEvents", "events are not blocked");
-
-        //Profile activatedProfile = getActivatedProfile();
-
-        if (unblockEventsRun)
-        {
-            // remove alarm for profile duration
-            ProfileDurationAlarmBroadcastReceiver.removeAlarm(context);
-            Profile.setActivatedProfileForDuration(context, 0);
-
-            Event.setEventsBlocked(context, false);
-            synchronized (eventList) {
-                fillEventList();
-                //noinspection ForLoopReplaceableByForEach
-                for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
-                    Event event = it.next();
-                    if (event != null)
-                        event._blocked = false;
-                }
+        if (showToast) {
+            if (ApplicationPreferences.notificationsToast) {
+                PPApplication.showToast(context.getApplicationContext(),
+                        context.getResources().getString(R.string.toast_events_restarted),
+                        Toast.LENGTH_SHORT);
             }
-            DatabaseHandler.getInstance(context).unblockAllEvents();
-            Event.setForceRunEventRunning(context, false);
         }
-
-        if (!keepActivatedProfile) {
-            DatabaseHandler.getInstance(context).deactivateProfile();
-            setProfileActive(null);
-        }
-
-        //EventsHandlerJob.startForRestartEvents(context, interactive);
-        final Context appContext = context.getApplicationContext();
-        PPApplication.startHandlerThread("DataWrapper.restartEvents.2");
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                PowerManager powerManager = (PowerManager) appContext.getSystemService(POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DataWrapper.restartEvents.2");
-                    wakeLock.acquire(10 * 60 * 1000);
-                }
-
-                EventsHandler eventsHandler = new EventsHandler(appContext);
-                eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_RESTART_EVENTS/*, interactive*/);
-
-                if ((wakeLock != null) && wakeLock.isHeld())
-                    wakeLock.release();
-            }
-        });
     }
 
-    void restartEventsWithRescan(/*boolean showToast, boolean interactive*/)
+    void restartEventsWithAlert(final Activity activity)
     {
-        PPApplication.logE("$$$ DataWrapper.restartEventsWithRescan","xxx");
-
-        // remove all event delay alarms
-        resetAllEventsInDelayStart(false);
-        resetAllEventsInDelayEnd(false);
-        // ignore manual profile activation
-        // and unblock forceRun events
-        restartEvents(true, true/*, true/*interactive*/);
-
-        if (ApplicationPreferences.applicationEventWifiRescan(context).equals(PPApplication.RESCAN_TYPE_SCREEN_ON_RESTART_EVENTS))
-        {
-            PPApplication.restartWifiScanner(context, false);
-        }
-        if (ApplicationPreferences.applicationEventBluetoothRescan(context).equals(PPApplication.RESCAN_TYPE_SCREEN_ON_RESTART_EVENTS))
-        {
-            PPApplication.restartBluetoothScanner(context, false);
-        }
-        if (ApplicationPreferences.applicationEventLocationRescan(context).equals(PPApplication.RESCAN_TYPE_SCREEN_ON_RESTART_EVENTS))
-        {
-            PPApplication.restartGeofenceScanner(context, false);
-        }
-        if (ApplicationPreferences.applicationEventMobileCellsRescan(context).equals(PPApplication.RESCAN_TYPE_SCREEN_ON_RESTART_EVENTS))
-        {
-            PPApplication.restartPhoneStateScanner(context, false);
-        }
-
-
-        //if (showToast)
-        //{
-            Toast msg = Toast.makeText(context,
-                    context.getResources().getString(R.string.toast_events_restarted),
-                    Toast.LENGTH_SHORT);
-            msg.show();
-        //}
-    }
-
-    void restartEventsWithAlert(Activity activity)
-    {
-        if (!Event.getGlobalEventsRunning(context))
+        if (!Event.getGlobalEventsRunning()) {
             // events are globally stopped
+
+            // show toast about hot working restart events, because global events run is disabled
+            PPApplication.showToast(context.getApplicationContext(),
+                    context.getResources().getString(R.string.toast_restart_events_global_events_run_is_disabled),
+                    Toast.LENGTH_SHORT);
+
+            boolean finish;
+            if (activity instanceof ActivateProfileActivity)
+                finish = ApplicationPreferences.applicationClose;
+            else
+                finish = (activity instanceof RestartEventsFromGUIActivity) ||
+                        (activity instanceof BackgroundActivateProfileActivity);
+            //PPApplication.logE("DataWrapper.restartEventsWithAlert", "finish="+finish);
+            if (finish) {
+                final Handler handler = new Handler(context.getMainLooper());
+                handler.post(() -> {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.restartEventsWithAlert");
+                    try {
+                        activity.finish();
+                    } catch (Exception e) {
+                        PPApplication.recordException(e);
+                    }
+                });
+            }
+
             return;
+        }
 
         /*
         if (!PPApplication.getEventsBlocked(context))
             return;
         */
 
-        PPApplication.logE("DataWrapper.restartEventsWithAlert", "xxx");
+        //PPApplication.logE("DataWrapper.restartEventsWithAlert", "xxx");
 
-        if (ApplicationPreferences.applicationRestartEventsWithAlert(context) || (activity instanceof EditorProfilesActivity))
+//        PPApplication.logE("[BLOCK_ACTIONS] DataWrapper.restartEventsWithAlert", "false");
+        PPApplication.setBlockProfileEventActions(false);
+
+        if (ApplicationPreferences.applicationRestartEventsWithAlert || (activity instanceof EditorProfilesActivity))
         {
-            final Activity _activity = activity;
-
             AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(activity);
             dialogBuilder.setTitle(R.string.restart_events_alert_title);
             dialogBuilder.setMessage(R.string.restart_events_alert_message);
             //dialogBuilder.setIcon(android.R.drawable.ic_dialog_alert);
-            dialogBuilder.setPositiveButton(R.string.alert_button_yes, new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int which) {
-                    PPApplication.logE("DataWrapper.restartEventsWithAlert", "restart");
+            dialogBuilder.setPositiveButton(R.string.alert_button_yes, (dialog, which) -> {
+                //PPApplication.logE("DataWrapper.restartEventsWithAlert", "restart");
 
-                    boolean finish;
-                    if (_activity instanceof ActivateProfileActivity)
-                        finish = ApplicationPreferences.applicationClose(context);
-                    else
-                    //noinspection RedundantIfStatement
-                    if (_activity instanceof RestartEventsFromNotificationActivity)
-                        finish = true;
-                    else
-                        finish = false;
-                    if (finish)
-                        _activity.finish();
+                boolean finish;
+                if (activity instanceof ActivateProfileActivity)
+                    finish = ApplicationPreferences.applicationClose;
+                else
+                //noinspection RedundantIfStatement
+                if ((activity instanceof RestartEventsFromGUIActivity) ||
+                        (activity instanceof BackgroundActivateProfileActivity))
+                    finish = true;
+                else
+                    finish = false;
+                if (finish)
+                    activity.finish();
 
-                    restartEventsWithRescan();
-
-                    /*final Handler handler = new Handler(context.getMainLooper());
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            restartEventsWithRescan(true, true);
-                        }
-                    }, 3000);*/
+                boolean serviceStarted = PhoneProfilesService.isServiceRunning(context, PhoneProfilesService.class, false);
+                if (!serviceStarted) {
+                    PPApplication.setApplicationStarted(context, true);
+                    Intent serviceIntent = new Intent(context, PhoneProfilesService.class);
+                    //serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, true);
+                    //serviceIntent.putExtra(PhoneProfilesService.EXTRA_DEACTIVATE_PROFILE, false);
+                    serviceIntent.putExtra(PhoneProfilesService.EXTRA_ACTIVATE_PROFILES, false);
+                    serviceIntent.putExtra(PPApplication.EXTRA_APPLICATION_START, true);
+                    serviceIntent.putExtra(PPApplication.EXTRA_DEVICE_BOOT, false);
+                    serviceIntent.putExtra(PhoneProfilesService.EXTRA_START_ON_PACKAGE_REPLACE, false);
+//                    PPApplication.logE("[START_PP_SERVICE] DataWrapper.restartEventsWithAlert", "xxx");
+                    PPApplication.startPPService(context, serviceIntent);
+                }
+                else {
+//                        PPApplication.logE("[APP_START] DataWrapper.restartEventsWithAlert", "(1)");
+                    restartEventsWithRescan(true, true, true, true, true, true);
+                    //IgnoreBatteryOptimizationNotification.showNotification(context);
                 }
             });
-            dialogBuilder.setNegativeButton(R.string.alert_button_no, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    boolean finish = (!(_activity instanceof ActivateProfileActivity)) &&
-                                     (!(_activity instanceof EditorProfilesActivity));
+            dialogBuilder.setNegativeButton(R.string.alert_button_no, (dialogInterface, i) -> {
+                boolean finish = (!(activity instanceof ActivateProfileActivity)) &&
+                                 (!(activity instanceof EditorProfilesActivity));
 
-                    if (finish)
-                        _activity.finish();
-                }
+                if (finish)
+                    activity.finish();
             });
-            dialogBuilder.show();
+            dialogBuilder.setOnCancelListener(dialogInterface -> {
+                boolean finish = (!(activity instanceof ActivateProfileActivity)) &&
+                                 (!(activity instanceof EditorProfilesActivity));
+
+                if (finish)
+                    activity.finish();
+            });
+            AlertDialog dialog = dialogBuilder.create();
+
+//            dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+//                @Override
+//                public void onShow(DialogInterface dialog) {
+//                    Button positive = ((AlertDialog)dialog).getButton(DialogInterface.BUTTON_POSITIVE);
+//                    if (positive != null) positive.setAllCaps(false);
+//                    Button negative = ((AlertDialog)dialog).getButton(DialogInterface.BUTTON_NEGATIVE);
+//                    if (negative != null) negative.setAllCaps(false);
+//                }
+//            });
+
+            if (!activity.isFinishing())
+                dialog.show();
         }
         else
         {
-            PPApplication.logE("DataWrapper.restartEventsWithAlert", "restart");
+            //PPApplication.logE("DataWrapper.restartEventsWithAlert", "restart");
 
             boolean finish;
             if (activity instanceof ActivateProfileActivity)
-                finish = ApplicationPreferences.applicationClose(context);
+                finish = ApplicationPreferences.applicationClose;
             else
-            //noinspection RedundantIfStatement
-            if (activity instanceof RestartEventsFromNotificationActivity) {
-                finish = true;
+                finish = (activity instanceof RestartEventsFromGUIActivity) ||
+                        (activity instanceof BackgroundActivateProfileActivity);
+            //PPApplication.logE("DataWrapper.restartEventsWithAlert", "finish="+finish);
+            if (finish) {
+                final Handler handler = new Handler(context.getMainLooper());
+                handler.post(() -> {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.restartEventsWithAlert");
+                    try {
+                        activity.finish();
+                    } catch (Exception e) {
+                        PPApplication.recordException(e);
+                    }
+                });
             }
-            else
-                finish = false;
-            PPApplication.logE("DataWrapper.restartEventsWithAlert", "finish="+finish);
-            if (finish)
-                activity.finish();
 
-            restartEventsWithRescan();
+//            PPApplication.logE("[APP_START] DataWrapper.restartEventsWithAlert", "(2)");
+            restartEventsWithRescan(true, true, true, true, true, true);
 
-            /*final Handler handler = new Handler();
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    restartEventsWithRescan(true, true);
-                }
-            }, 3000);*/
+            //IgnoreBatteryOptimizationNotification.showNotification(context);
         }
     }
 
     @SuppressLint("NewApi")
     // delay is in seconds, max 5
-    void restartEventsWithDelay(int delay, boolean unblockEventsRun/*, boolean interactive*/)
+    void restartEventsWithDelay(int delay, boolean alsoRescan, final boolean unblockEventsRun, /*final boolean reactivateProfile,*/
+                                boolean replace, /*boolean clearOld,*/ final int logType)
     {
-        PPApplication.logE("DataWrapper.restartEventsWithDelay","xxx");
+//        PPApplication.logE("[FIFO_TEST] DataWrapper.restartEventsWithDelay","xxx"); //"clearOld="+clearOld);
+        Data workData = new Data.Builder()
+                    .putBoolean(PhoneProfilesService.EXTRA_ALSO_RESCAN, alsoRescan)
+                    .putBoolean(PhoneProfilesService.EXTRA_UNBLOCK_EVENTS_RUN, unblockEventsRun)
+                    .putInt(PhoneProfilesService.EXTRA_LOG_TYPE, logType)
+                    .build();
 
-        final boolean _unblockEventsRun = unblockEventsRun;
-        //final boolean _interactive = false/*interactive*/;
+        /*int keepResultsDelay = (delay * 5) / 60; // conversion to minutes
+        if (keepResultsDelay < PPApplication.WORK_PRUNE_DELAY)
+            keepResultsDelay = PPApplication.WORK_PRUNE_DELAY;*/
+        OneTimeWorkRequest restartEventsWithDelayWorker;
+        if (replace)
+            restartEventsWithDelayWorker =
+                    new OneTimeWorkRequest.Builder(RestartEventsWithDelayWorker.class)
+                            .addTag(RestartEventsWithDelayWorker.WORK_TAG)
+                            .setInputData(workData)
+                            .setInitialDelay(delay, TimeUnit.SECONDS)
+                            .build();
+        else
+            restartEventsWithDelayWorker =
+                    new OneTimeWorkRequest.Builder(RestartEventsWithDelayWorker.class)
+                            .addTag(RestartEventsWithDelayWorker.WORK_TAG_APPEND)
+                            .setInputData(workData)
+                            .setInitialDelay(delay, TimeUnit.SECONDS)
+                            .keepResultsForAtLeast(PPApplication.WORK_PRUNE_DELAY_MINUTES, TimeUnit.MINUTES)
+                            .build();
+        try {
+            if (PPApplication.getApplicationStarted(true)) {
+                WorkManager workManager = PPApplication.getWorkManagerInstance();
+                if (workManager != null) {
 
-        PPApplication.startHandlerThread("DataWrapper.restartEventsWithDelay");
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                PPApplication.logE("DataWrapper.restartEventsWithDelay","restart");
-                restartEvents(_unblockEventsRun, true/*, _interactive*/);
+//                    //if (PPApplication.logEnabled()) {
+//                    ListenableFuture<List<WorkInfo>> statuses;
+//                    statuses = workManager.getWorkInfosForUniqueWork(RestartEventsWithDelayWorker.WORK_TAG);
+//                    try {
+//                        List<WorkInfo> workInfoList = statuses.get();
+//                        PPApplication.logE("[TEST BATTERY] DataWrapper.restartEventsWithDelay", "for=" + RestartEventsWithDelayWorker.WORK_TAG + " workInfoList.size()=" + workInfoList.size());
+//                    } catch (Exception ignored) {
+//                    }
+//                    //}
+
+//                    PPApplication.logE("[WORKER_CALL] DataWrapper.restartEventsWithDelay", "xxx");
+                    //workManager.enqueue(restartEventsWithDelayWorker);
+                    if (replace)
+                        workManager.enqueueUniqueWork(RestartEventsWithDelayWorker.WORK_TAG, ExistingWorkPolicy.REPLACE, restartEventsWithDelayWorker);
+                    else
+                        workManager.enqueueUniqueWork(RestartEventsWithDelayWorker.WORK_TAG_APPEND, ExistingWorkPolicy.APPEND_OR_REPLACE, restartEventsWithDelayWorker);
+                }
             }
-        }, delay * 1000);
+        } catch (Exception e) {
+            PPApplication.recordException(e);
+        }
     }
 
     void setEventBlocked(Event event, boolean blocked)
@@ -3628,103 +2628,217 @@ public class DataWrapper {
     // returns true if:
     // 1. events are blocked = any profile is activated manually
     // 2. no any forceRun event is running
-    boolean getIsManualProfileActivation()
+    static boolean getIsManualProfileActivation(boolean afterDuration, Context context)
     {
-        if (!Event.getEventsBlocked(context))
-            return false;
-        else
-            return !Event.getForceRunEventRunning(context);
+        /*if (PPApplication.logEnabled()) {
+            PPApplication.logE("DataWrapper.getIsManualProfileActivation", "ApplicationPreferences.prefEventsBlocked=" + ApplicationPreferences.prefEventsBlocked);
+            PPApplication.logE("DataWrapper.getIsManualProfileActivation", "ApplicationPreferences.prefForceRunEventRunning=" + ApplicationPreferences.prefForceRunEventRunning);
+        }*/
+        if (afterDuration)
+            //return ApplicationPreferences.prefEventsBlocked;
+            return Event.getEventsBlocked(context);
+        else {
+//            PPApplication.logE("[APP_START] DataWrapper.getIsManualProfileActivation", "Event.getEventsBlocked(context)="+Event.getEventsBlocked(context));
+//            PPApplication.logE("[APP_START] DataWrapper.getIsManualProfileActivation", "Event.getForceRunEventRunning(context)="+Event.getForceRunEventRunning(context));
+            //if (!ApplicationPreferences.prefEventsBlocked)
+            if (!Event.getEventsBlocked(context))
+                return false;
+            else
+                return !Event.getForceRunEventRunning(context);
+        }
     }
 
-    static private String getProfileNameWithManualIndicator(Profile profile, List<EventTimeline> eventTimelineList,
-                                                            boolean addIndicators, boolean addDuration, boolean multiLine,
-                                                            DataWrapper dataWrapper)
+    static private Spannable _getProfileNameWithManualIndicator(
+            Profile profile, boolean addEventName, String indicators, boolean addDuration, boolean multiLine,
+            boolean durationInNextLine, DataWrapper dataWrapper)
     {
         if (profile == null)
-            return "";
+            return new SpannableString("");
 
-        String name;
-        if (addDuration)
-            name = profile.getProfileNameWithDuration(multiLine, dataWrapper.context);
-        else
-            name = profile._name;
-
-        if (Event.getEventsBlocked(dataWrapper.context))
+        String eventName = "";
+        String manualIndicators = "";
+        if (addEventName)
         {
-            if (addIndicators)
-            {
+            //if (ApplicationPreferences.prefEventsBlocked) {
+            if (Event.getEventsBlocked(dataWrapper.context)) {
                 if (Event.getForceRunEventRunning(dataWrapper.context))
-                {
-                    name = "[\u00BB] " + name;
-                }
+                    manualIndicators = "[»]";
                 else
-                {
-                    name = "[M] " + name;
+                    manualIndicators = "[M]";
+            }
+
+            String _eventName = getLastStartedEventName(dataWrapper, profile);
+            if (!_eventName.equals("?"))
+                eventName = "[" + _eventName + "]";
+
+            if (!manualIndicators.isEmpty())
+                eventName = manualIndicators + " " + eventName;
+        }
+
+        if (!PPApplication.getApplicationStarted(true))
+            eventName = eventName + " ";
+
+        Spannable sName;
+        if (addDuration) {
+            if (!addEventName || manualIndicators.equals("[M]"))
+                sName = profile.getProfileNameWithDuration(eventName, indicators, multiLine, durationInNextLine, dataWrapper.context);
+            else {
+                String name = profile._name;
+                if (!eventName.isEmpty())
+                    name = name + " " + eventName;
+                if (!indicators.isEmpty()) {
+                    if (multiLine)
+                        name = name + "\n" + indicators;
+                    else
+                        name = name + " " + indicators;
                 }
+                sName = new SpannableString(name);
             }
         }
-
-        if (addIndicators)
-        {
-            String eventName = getLastStartedEventName(eventTimelineList, dataWrapper);
+        else {
+            String name = profile._name;
             if (!eventName.isEmpty())
-                name = name + " [" + eventName + "]";
+                name = name + " " + eventName;
+            if (!indicators.isEmpty()) {
+                if (multiLine)
+                    name = name + "\n" + indicators;
+                else
+                    name = name + " " + indicators;
+            }
+            sName = new SpannableString(name);
         }
 
-        return name;
+        return sName;
     }
 
-    static String getProfileNameWithManualIndicator(Profile profile, boolean addIndicators, boolean addDuration, boolean multiLine,
-                                                    DataWrapper dataWrapper) {
-        List<EventTimeline> eventTimelineList = dataWrapper.getEventTimelineList();
-
-        return getProfileNameWithManualIndicator(profile, eventTimelineList, addIndicators, addDuration, multiLine, dataWrapper);
+    static Spannable getProfileNameWithManualIndicator(
+            Profile profile, boolean addEventName, String indicators, boolean addDuration, boolean multiLine,
+            boolean durationInNextLine, DataWrapper dataWrapper) {
+        if (dataWrapper != null) {
+            return _getProfileNameWithManualIndicator(profile, addEventName, indicators, addDuration, multiLine, durationInNextLine, dataWrapper);
+        }
+        else {
+            return _getProfileNameWithManualIndicator(profile, false, indicators, addDuration, multiLine, durationInNextLine, null);
+        }
     }
 
-    static private String getLastStartedEventName(List<EventTimeline> eventTimelineList, DataWrapper dataWrapper)
+    @SuppressWarnings("SameParameterValue")
+    static String getProfileNameWithManualIndicatorAsString(
+            Profile profile, boolean addEventName, String indicators, boolean addDuration, boolean multiLine,
+            boolean durationInNextLine, DataWrapper dataWrapper) {
+        Spannable sProfileName = getProfileNameWithManualIndicator(profile, addEventName, indicators, addDuration, multiLine, durationInNextLine, dataWrapper);
+        Spannable sbt = new SpannableString(sProfileName);
+        Object[] spansToRemove = sbt.getSpans(0, sProfileName.length(), Object.class);
+        for (Object span : spansToRemove) {
+            if (span instanceof CharacterStyle)
+                sbt.removeSpan(span);
+        }
+        return sbt.toString();
+    }
+
+    static private String getLastStartedEventName(DataWrapper dataWrapper, Profile forProfile)
     {
 
-        if (Event.getGlobalEventsRunning(dataWrapper.context) && PPApplication.getApplicationStarted(dataWrapper.context, false))
+        if (Event.getGlobalEventsRunning() && PPApplication.getApplicationStarted(false))
         {
-            if (eventTimelineList.size() > 0)
-            {
-                EventTimeline eventTimeLine = eventTimelineList.get(eventTimelineList.size()-1);
-                long event_id = eventTimeLine._fkEvent;
-                Event event = dataWrapper.getEventById(event_id);
-                if (event != null)
+            if (dataWrapper.eventListFilled && dataWrapper.eventTimelineListFilled) {
+                List<EventTimeline> eventTimelineList = dataWrapper.getEventTimelineList(false);
+                if (eventTimelineList.size() > 0)
                 {
-                    if ((!Event.getEventsBlocked(dataWrapper.context)) || (event._forceRun))
+                    EventTimeline eventTimeLine = eventTimelineList.get(eventTimelineList.size()-1);
+                    long event_id = eventTimeLine._fkEvent;
+                    Event event = dataWrapper.getEventById(event_id);
+                    if (event != null)
                     {
-                        Profile profile = dataWrapper.getActivatedProfile(false, false);
-                        if ((profile != null) && (event._fkProfileStart == profile._id))
-                            // last started event activates activated profile
-                            return event._name;
+                        //if ((!ApplicationPreferences.prefEventsBlocked) || (event._forceRun))
+                        if ((!Event.getEventsBlocked(dataWrapper.context)) || (event._ignoreManualActivation))
+                        {
+                            //Profile profile;
+                            //profile = dataWrapper.getActivatedProfile(false, false);
+                            //if ((profile != null) && (event._fkProfileStart == profile._id))
+                                // last started event activates activated profile
+                                return event._name;
+                            //else
+                            //    return "?";
+                        }
                         else
-                            return "";
+                            return "?";
                     }
                     else
-                        return "";
+                        return "?";
                 }
                 else
-                    return "";
-            }
-            else
-            {
-                long profileId = Long.valueOf(ApplicationPreferences.applicationBackgroundProfile(dataWrapper.context));
-                if ((!Event.getEventsBlocked(dataWrapper.context)) && (profileId != Profile.PROFILE_NO_ACTIVATE))
                 {
-                    Profile profile = dataWrapper.getActivatedProfile(false, false);
-                    if ((profile != null) && (profile._id == profileId))
-                        return dataWrapper.context.getString(R.string.event_name_background_profile);
+                    long profileId = ApplicationPreferences.applicationDefaultProfile;
+                    //if ((!ApplicationPreferences.prefEventsBlocked) &&
+                    if ((!Event.getEventsBlocked(dataWrapper.context)) &&
+                            (profileId != Profile.PROFILE_NO_ACTIVATE) &&
+                            (profileId == forProfile._id))
+                    {
+                        //Profile profile;
+                        //profile = dataWrapper.getActivatedProfile(false, false);
+                        //if ((profile != null) && (profile._id == profileId))
+                            return dataWrapper.context.getString(R.string.event_name_background_profile);
+                        //else
+                        //    return "?";
+                    }
                     else
-                        return "";
+                        return "?";
                 }
-                else
-                    return "";
             }
+            else {
+                String eventName = DatabaseHandler.getInstance(dataWrapper.context).getLastStartedEventName();
+                if (!eventName.equals("?")) {
+                    return eventName;
+                }
+                /*
+                List<EventTimeline> eventTimelineList = dataWrapper.getEventTimelineList(true);
+                if (eventTimelineList.size() > 0)
+                {
+                    EventTimeline eventTimeLine = eventTimelineList.get(eventTimelineList.size()-1);
+                    long event_id = eventTimeLine._fkEvent;
+                    Event event = dataWrapper.getEventById(event_id);
+                    if (event != null)
+                    {
+                        if ((!ApplicationPreferences.prefEventsBlocked) || (event._forceRun))
+                        {
+                            //Profile profile;
+                            //profile = dataWrapper.getActivatedProfileFromDB(false, false);
+                            //if ((profile != null) && (event._fkProfileStart == profile._id))
+                                // last started event activates activated profile
+                                return event._name;
+                            //else
+                            //    return "?";
+                        }
+                        else
+                            return "?";
+                    }
+                    else
+                        return "?";
+                }*/
+                else
+                {
+                    long profileId = ApplicationPreferences.applicationDefaultProfile;
+                    //if ((!ApplicationPreferences.prefEventsBlocked) &&
+                    if ((!Event.getEventsBlocked(dataWrapper.context)) &&
+                        (profileId != Profile.PROFILE_NO_ACTIVATE) &&
+                        (profileId == forProfile._id))
+                    {
+                        //Profile profile;
+                        //profile = dataWrapper.getActivatedProfileFromDB(false, false);
+                        //if ((profile != null) && (profile._id == profileId))
+                            return dataWrapper.context.getString(R.string.event_name_background_profile);
+                        //else
+                        //    return "?";
+                    }
+                    else
+                        return "?";
+                }
+            }
+
         }
         else
-            return "";
+            return "?";
     }
 
     private void resetAllEventsInDelayStart(boolean onlyFromDb)
@@ -3735,7 +2849,6 @@ public class DataWrapper {
                 //noinspection ForLoopReplaceableByForEach
                 for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
                     Event event = it.next();
-                    event.removeDelayStartAlarm(this);
                     event.removeDelayStartAlarm(this);
                 }
             }
@@ -3752,99 +2865,478 @@ public class DataWrapper {
                 for (Iterator<Event> it = eventList.iterator(); it.hasNext(); ) {
                     Event event = it.next();
                     event.removeDelayEndAlarm(this);
-                    event.removeDelayEndAlarm(this);
                 }
             }
         }
         DatabaseHandler.getInstance(context).resetAllEventsInDelayStart();
     }
 
-    public void addActivityLog(int logType, String eventName, String profileName, String profileIcon,
-                               int durationDelay) {
-        if (PPApplication.getActivityLogEnabled(context)) {
-            //if (ApplicationPreferences.preferences == null)
-            //    ApplicationPreferences.preferences = context.getSharedPreferences(PPApplication.APPLICATION_PREFS_NAME, Context.MODE_PRIVATE);
-            //ApplicationPreferences.setApplicationDeleteOldActivityLogs(context, Integer.valueOf(preferences.getString(ApplicationPreferences.PREF_APPLICATION_DELETE_OLD_ACTIVITY_LOGS, "7")));
-            DatabaseHandler.getInstance(context).addActivityLog(ApplicationPreferences.applicationDeleteOldActivityLogs(context),
-                                    logType, eventName, profileName, profileIcon, durationDelay);
+    void runStopEventsWithAlert(final Activity activity, final SwitchCompat checkBox, boolean isChecked) {
+        boolean eventRunningEnabled = Event.getGlobalEventsRunning();
+        if (checkBox != null) {
+            if (isChecked && eventRunningEnabled)
+                // already enabled
+                return;
+            if (!isChecked && !eventRunningEnabled)
+                // already disabled
+                return;
+        }
+        if (eventRunningEnabled) {
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(activity);
+            dialogBuilder.setTitle(R.string.stop_events_alert_title);
+            dialogBuilder.setMessage(R.string.stop_events_alert_message);
+            //dialogBuilder.setIcon(android.R.drawable.ic_dialog_alert);
+            dialogBuilder.setPositiveButton(R.string.alert_button_yes, (dialog, which) -> {
+                //PPApplication.logE("DataWrapper.runStopEventsWithAlert", "stop");
+                if (globalRunStopEvents(true)) {
+                    //PPApplication.showProfileNotification(/*activity.getApplicationContext()*/true, false);
+
+                    /*if (activity instanceof EditorProfilesActivity)
+                        ((EditorProfilesActivity) activity).refreshGUI(true, false, true, 0, 0);
+                    else if (activity instanceof ActivateProfileActivity)
+                        ((ActivateProfileActivity) activity).refreshGUI(true, false);*/
+                    //PPApplication.logE("ActivateProfileHelper.updateGUI", "from DataWrapper.runStopEventsWithAlert");
+                    //PPApplication.logE("###### PPApplication.updateGUI", "from=DataWrapper.runStopEventsWithAlert (1)");
+                    PPApplication.updateGUI(0, activity/*, true, true*/);
+                }
+            });
+            dialogBuilder.setNegativeButton(R.string.alert_button_no, (dialog, which) -> {
+                //PPApplication.logE("DataWrapper.runStopEventsWithAlert", "no stop");
+                if (checkBox != null)
+                    checkBox.setChecked(true);
+            });
+            AlertDialog dialog = dialogBuilder.create();
+
+//            dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+//                @Override
+//                public void onShow(DialogInterface dialog) {
+//                    Button positive = ((AlertDialog)dialog).getButton(DialogInterface.BUTTON_POSITIVE);
+//                    if (positive != null) positive.setAllCaps(false);
+//                    Button negative = ((AlertDialog)dialog).getButton(DialogInterface.BUTTON_NEGATIVE);
+//                    if (negative != null) negative.setAllCaps(false);
+//                }
+//            });
+
+            if (!activity.isFinishing())
+                dialog.show();
+        }
+        else {
+            if (globalRunStopEvents(false)) {
+                //PPApplication.showProfileNotification(/*activity.getApplicationContext()*/true, false);
+                /*if (activity instanceof EditorProfilesActivity)
+                    ((EditorProfilesActivity) activity).refreshGUI(true, false, true, 0, 0);
+                else if (activity instanceof ActivateProfileActivity)
+                    ((ActivateProfileActivity) activity).refreshGUI(true, false);*/
+                //PPApplication.logE("ActivateProfileHelper.updateGUI", "from DataWrapper.runStopEventsWithAlert");
+                //PPApplication.logE("###### PPApplication.updateGUI", "from=DataWrapper.runStopEventsWithAlert (2)");
+                PPApplication.updateGUI(0, activity/*, true, true*/);
+            }
         }
     }
 
-    void runStopEvents() {
-        if (Event.getGlobalEventsRunning(context))
-        {
-            //noinspection ConstantConditions
-            addActivityLog(DatabaseHandler.ALTYPE_RUNEVENTS_DISABLE, null, null, null, 0);
+    boolean globalRunStopEvents(boolean stop) {
+        if (stop) {
+            if (Event.getGlobalEventsRunning()) {
+                PPApplication.addActivityLog(context, PPApplication.ALTYPE_RUN_EVENTS_DISABLE, null, null, null, 0, "");
 
-            // no setup for next start
-            resetAllEventsInDelayStart(false);
-            resetAllEventsInDelayEnd(false);
-            // no set system events, unblock all events, no activate return profile
-            pauseAllEventsFromMainThread(true, false/*, false*/);
-            Event.setGlobalEventsRunning(context, false);
+                // no setup for next start
+                resetAllEventsInDelayStart(false);
+                resetAllEventsInDelayEnd(false);
 
-            Intent serviceIntent = new Intent(context, PhoneProfilesService.class);
-            serviceIntent.putExtra(PhoneProfilesService.EXTRA_UNREGISTER_RECEIVERS_AND_JOBS, true);
-            serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, false);
-            PPApplication.startPPService(context, serviceIntent);
+                Event.setGlobalEventsRunning(context, false);
+
+                // no set system events, unblock all events, no activate return profile
+                pauseAllEventsForGlobalStopEvents();
+
+                /*Intent serviceIntent = new Intent(context, PhoneProfilesService.class);
+                serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, false);
+                serviceIntent.putExtra(PhoneProfilesService.EXTRA_UNREGISTER_RECEIVERS_AND_WORKERS, true);
+                PPApplication.startPPService(context, serviceIntent);*/
+                Intent commandIntent = new Intent(PhoneProfilesService.ACTION_COMMAND);
+                //commandIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, false);
+                commandIntent.putExtra(PhoneProfilesService.EXTRA_UNREGISTER_RECEIVERS_AND_WORKERS, true);
+                PPApplication.runCommand(context, commandIntent);
+                return true;
+            }
         }
-        else
-        {
-            //noinspection ConstantConditions
-            addActivityLog(DatabaseHandler.ALTYPE_RUNEVENTS_ENABLE, null, null, null, 0);
+        else {
+            if (!Event.getGlobalEventsRunning()) {
+                PPApplication.addActivityLog(context, PPApplication.ALTYPE_RUN_EVENTS_ENABLE, null, null, null, 0, "");
 
-            Event.setGlobalEventsRunning(context, true);
+                Event.setGlobalEventsRunning(context, true);
 
-            Intent serviceIntent = new Intent(context, PhoneProfilesService.class);
-            serviceIntent.putExtra(PhoneProfilesService.EXTRA_REGISTER_RECEIVERS_AND_JOBS, true);
-            serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, false);
-            PPApplication.startPPService(context, serviceIntent);
+                /*Intent serviceIntent = new Intent(context, PhoneProfilesService.class);
+                serviceIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, false);
+                serviceIntent.putExtra(PhoneProfilesService.EXTRA_REGISTER_RECEIVERS_AND_WORKERS, true);
+                PPApplication.startPPService(context, serviceIntent);*/
+                Intent commandIntent = new Intent(PhoneProfilesService.ACTION_COMMAND);
+                //commandIntent.putExtra(PhoneProfilesService.EXTRA_ONLY_START, false);
+                commandIntent.putExtra(PhoneProfilesService.EXTRA_REGISTER_RECEIVERS_AND_WORKERS, true);
+                PPApplication.runCommand(context, commandIntent);
 
-            // setup for next start
-            firstStartEvents(false);
+                // setup for next start
+                firstStartEvents(false, true);
+
+                //IgnoreBatteryOptimizationNotification.showNotification(context.getApplicationContext());
+                return true;
+            }
         }
+        return false;
     }
 
     static boolean isPowerSaveMode(Context context) {
-        boolean isCharging = false;
-        int batteryPct = -100;
-        boolean isPowerSaveMode = false;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-            if (powerManager != null)
-                isPowerSaveMode = powerManager.isPowerSaveMode();
+        /*String applicationPowerSaveModeInternal = ApplicationPreferences.applicationPowerSaveModeInternal;
+
+        if (applicationPowerSaveModeInternal.equals("1") || applicationPowerSaveModeInternal.equals("2")) {
+            Intent batteryStatus = null;
+            try { // Huawei devices: java.lang.IllegalArgumentException: registered too many Broadcast Receivers
+                IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                batteryStatus = context.registerReceiver(null, filter);
+            } catch (Exception ignored) {
+            }
+            if (batteryStatus != null) {
+                boolean isCharging;
+                int batteryPct;
+
+                //int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                //PPApplication.logE("DataWrapper.isPowerSaveMode", "status=" + status);
+                int plugged = batteryStatus.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
+                isCharging = plugged == BatteryManager.BATTERY_PLUGGED_AC
+                        || plugged == BatteryManager.BATTERY_PLUGGED_USB
+                        || plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS;
+                //isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                //             status == BatteryManager.BATTERY_STATUS_FULL;
+                //PPApplication.logE("DataWrapper.isPowerSaveMode", "isCharging=" + isCharging);
+                if (!isCharging) {
+                    int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                    //if (PPApplication.logEnabled()) {
+                    //    PPApplication.logE("DataWrapper.isPowerSaveMode", "level=" + level);
+                    //    PPApplication.logE("DataWrapper.isPowerSaveMode", "scale=" + scale);
+                    //}
+
+                    batteryPct = Math.round(level / (float) scale * 100);
+                    //PPApplication.logE("DataWrapper.isPowerSaveMode", "batteryPct=" + batteryPct);
+
+                    if (applicationPowerSaveModeInternal.equals("1") && (batteryPct <= 5))
+                        return true;
+                    if (applicationPowerSaveModeInternal.equals("2") && (batteryPct <= 15))
+                        return true;
+                }
+            }
         }
-
-        Intent batteryStatus = null;
-        try { // Huawei devices: java.lang.IllegalArgumentException: regist too many Broadcast Receivers
-            IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-            batteryStatus = context.registerReceiver(null, filter);
-        } catch (Exception ignored) {}
-        if (batteryStatus != null) {
-            int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-            PPApplication.logE("DataWrapper.isPowerSaveMode", "status=" + status);
-            isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                         status == BatteryManager.BATTERY_STATUS_FULL;
-            PPApplication.logE("DataWrapper.isPowerSaveMode", "isCharging=" + isCharging);
-
-            int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-            int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-            PPApplication.logE("DataWrapper.isPowerSaveMode", "level=" + level);
-            PPApplication.logE("DataWrapper.isPowerSaveMode", "scale=" + scale);
-
-            batteryPct = Math.round(level / (float) scale * 100);
-            PPApplication.logE("DataWrapper.isPowerSaveMode", "batteryPct=" + batteryPct);
-        }
-
-        if (ApplicationPreferences.applicationPowerSaveModeInternal(context).equals("1") && (batteryPct <= 5) && (!isCharging))
-            return true;
-        if (ApplicationPreferences.applicationPowerSaveModeInternal(context).equals("2") && (batteryPct <= 15) && (!isCharging))
-            return true;
-        if (ApplicationPreferences.applicationPowerSaveModeInternal(context).equals("3"))
-            return isPowerSaveMode;
+        else
+        if (applicationPowerSaveModeInternal.equals("3")) {*/
+            //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (powerManager != null)
+                    return powerManager.isPowerSaveMode();
+            //}
+            //return isPowerSaveMode;
+        //}
 
         return false;
     }
 
+    void clearSensorsStartTime() {
+        synchronized (eventList) {
+            for (Event _event : eventList) {
+                clearSensorsStartTime(_event, false/*force*/);
+            }
+        }
+    }
+
+    private void clearSensorsStartTime(Event _event, boolean force) {
+        if (force || _event._eventPreferencesSMS._permanentRun) {
+            _event._eventPreferencesSMS._startTime = 0;
+            _event._eventPreferencesSMS._fromSIMSlot = 0;
+            //if ((_event != null) && (_event._name != null) && (_event._name.equals("SMS event")))
+            //    PPApplication.logE("[SMS sensor] DataWrapper.clearSensorsStartTime", "startTime="+_event._eventPreferencesSMS._startTime);
+            DatabaseHandler.getInstance(context.getApplicationContext()).updateSMSStartTime(_event);
+            _event._eventPreferencesSMS.removeAlarm(context);
+        }
+
+        //if (force || _event._eventPreferencesNotification._permanentRun) {
+        //_event._eventPreferencesNotification._startTime = 0;
+        //dataWrapper.getDatabaseHandler().updateNotificationStartTime(_event);
+        //_event._eventPreferencesNotification.removeAlarm(context);
+        //}
+
+        if (force || _event._eventPreferencesNFC._permanentRun) {
+            _event._eventPreferencesNFC._startTime = 0;
+            DatabaseHandler.getInstance(context.getApplicationContext()).updateNFCStartTime(_event);
+            _event._eventPreferencesNFC.removeAlarm(context);
+        }
+
+        if (force || _event._eventPreferencesCall._permanentRun) {
+            _event._eventPreferencesCall._startTime = 0;
+            DatabaseHandler.getInstance(context.getApplicationContext()).updateCallStartTime(_event);
+            _event._eventPreferencesCall.removeAlarm(context);
+        }
+
+        if (force || _event._eventPreferencesAlarmClock._permanentRun) {
+            _event._eventPreferencesAlarmClock._startTime = 0;
+            _event._eventPreferencesAlarmClock._alarmPackageName = "";
+            DatabaseHandler.getInstance(context.getApplicationContext()).updateAlarmClockStartTime(_event);
+            _event._eventPreferencesAlarmClock.removeAlarm(context);
+        }
+
+        if (force || _event._eventPreferencesDeviceBoot._permanentRun) {
+            _event._eventPreferencesDeviceBoot._startTime = 0;
+            DatabaseHandler.getInstance(context.getApplicationContext()).updateDeviceBootStartTime(_event);
+            _event._eventPreferencesDeviceBoot.removeAlarm(context);
+        }
+    }
+
+    boolean eventTypeExists(int eventType/*, boolean onlyRunning*/) {
+        synchronized (eventList) {
+            for (Event _event : eventList) {
+                //boolean eventEnabled;
+                //if (onlyRunning)
+                //    eventEnabled = _event.getStatus() == Event.ESTATUS_RUNNING;
+                //else
+                //    eventEnabled = _event.getStatus() != Event.ESTATUS_STOP;
+                if (_event.getStatus() != Event.ESTATUS_STOP) {
+                    boolean sensorEnabled;
+                    switch (eventType) {
+                        case DatabaseHandler.ETYPE_TIME:
+                            sensorEnabled = _event._eventPreferencesTime._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_BATTERY:
+                            sensorEnabled = _event._eventPreferencesBattery._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_BATTERY_WITH_LEVEL:
+                            sensorEnabled = _event._eventPreferencesBattery._enabled;
+                            if (sensorEnabled) {
+                                sensorEnabled =
+                                        (_event._eventPreferencesBattery._levelLow > 0) ||
+                                                (_event._eventPreferencesBattery._levelHight < 100);
+                            }
+                            break;
+                        case DatabaseHandler.ETYPE_CALL:
+                            sensorEnabled = _event._eventPreferencesCall._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_ACCESSORY:
+                            sensorEnabled = _event._eventPreferencesAccessories._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_CALENDAR:
+                            sensorEnabled = _event._eventPreferencesCalendar._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_WIFI_CONNECTED:
+                            sensorEnabled = _event._eventPreferencesWifi._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    ((_event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_CONNECTED) ||
+                                     (_event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOT_CONNECTED));
+                            break;
+                        case DatabaseHandler.ETYPE_WIFI_NEARBY:
+                            sensorEnabled = _event._eventPreferencesWifi._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    ((_event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NEARBY) ||
+                                     (_event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOT_NEARBY));
+                            break;
+                        case DatabaseHandler.ETYPE_SCREEN:
+                            sensorEnabled = _event._eventPreferencesScreen._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_BLUETOOTH_CONNECTED:
+                            sensorEnabled = _event._eventPreferencesBluetooth._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    ((_event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_CONNECTED) ||
+                                     (_event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOT_CONNECTED));
+                            break;
+                        case DatabaseHandler.ETYPE_BLUETOOTH_NEARBY:
+                            sensorEnabled = _event._eventPreferencesBluetooth._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    ((_event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NEARBY) ||
+                                     (_event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOT_NEARBY));
+                            break;
+                        case DatabaseHandler.ETYPE_SMS:
+                            sensorEnabled = _event._eventPreferencesSMS._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_NOTIFICATION:
+                            sensorEnabled = _event._eventPreferencesNotification._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_APPLICATION:
+                            sensorEnabled = _event._eventPreferencesApplication._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_LOCATION:
+                            sensorEnabled = _event._eventPreferencesLocation._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_ORIENTATION:
+                            sensorEnabled = _event._eventPreferencesOrientation._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_MOBILE_CELLS:
+                            sensorEnabled = _event._eventPreferencesMobileCells._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_NFC:
+                            sensorEnabled = _event._eventPreferencesNFC._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_WIFI:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._wifi != 0);
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_BLUETOOTH:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._bluetooth != 0);
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_MOBILE_DATA:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._mobileData != 0);
+                            break;
+/*                        case DatabaseHandler.ETYPE_RADIO_SWITCH_MOBILE_DATA_SIM1:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._mobileDataSIM1 != 0);
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_MOBILE_DATA_SIM2:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._mobileDataSIM2 != 0);
+                            break;*/
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_GPS:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._gps != 0);
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_NFC:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._nfc != 0);
+                            break;
+                        case DatabaseHandler.ETYPE_RADIO_SWITCH_AIRPLANE_MODE:
+                            sensorEnabled = _event._eventPreferencesRadioSwitch._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesRadioSwitch._airplaneMode != 0);
+                            break;
+                        case DatabaseHandler.ETYPE_ALARM_CLOCK:
+                            sensorEnabled = _event._eventPreferencesAlarmClock._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_TIME_TWILIGHT:
+                            sensorEnabled = _event._eventPreferencesTime._enabled;
+                            sensorEnabled = sensorEnabled &&
+                                    (_event._eventPreferencesTime._timeType != EventPreferencesTime.TIME_TYPE_EXACT);
+                            break;
+                        case DatabaseHandler.ETYPE_ALL_SCANNER_SENSORS:
+                            sensorEnabled = _event._eventPreferencesWifi._enabled &&
+                                    ((_event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NEARBY) ||
+                                     (_event._eventPreferencesWifi._connectionType == EventPreferencesWifi.CTYPE_NOT_NEARBY));
+                            if (!sensorEnabled)
+                                sensorEnabled = _event._eventPreferencesBluetooth._enabled &&
+                                    ((_event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NEARBY) ||
+                                     (_event._eventPreferencesBluetooth._connectionType == EventPreferencesBluetooth.CTYPE_NOT_NEARBY));
+                            if (!sensorEnabled) {
+                                sensorEnabled = _event._eventPreferencesLocation._enabled;
+                                sensorEnabled = sensorEnabled || _event._eventPreferencesMobileCells._enabled;
+                                sensorEnabled = sensorEnabled || _event._eventPreferencesOrientation._enabled;
+                            }
+                            break;
+                        case DatabaseHandler.ETYPE_DEVICE_BOOT:
+                            sensorEnabled = _event._eventPreferencesDeviceBoot._enabled;
+                            break;
+                        case DatabaseHandler.ETYPE_ALL:
+                        default:
+                            sensorEnabled = true;
+                            break;
+                    }
+
+                    if (sensorEnabled)
+                        return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    boolean profileTypeExists(int profileType/*, boolean sharedProfile*/) {
+        synchronized (profileList) {
+            for (Profile _profile : profileList) {
+                boolean profileEnabled;
+                switch (profileType) {
+                    case DatabaseHandler.PTYPE_CONNECT_TO_SSID:
+                        profileEnabled = !_profile._deviceConnectToSSID.equals(Profile.CONNECTTOSSID_JUSTANY);
+                        break;
+                    case DatabaseHandler.PTYPE_FORCE_STOP:
+                        profileEnabled = _profile._deviceForceStopApplicationChange != 0;
+                        break;
+                    case DatabaseHandler.PTYPE_LOCK_DEVICE:
+                        profileEnabled = _profile._lockDevice != 0;
+                        break;
+                    default:
+                        profileEnabled = true;
+                        break;
+                }
+                if (profileEnabled)
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    List<String> getActivatedProfilesFIFO() {
+        //synchronized (PPApplication.profileActivationMutex) {
+            SharedPreferences preferences = context.getSharedPreferences(PPApplication.ACTIVATED_PROFILES_FIFO_PREFS_NAME, Context.MODE_PRIVATE);
+            int count = preferences.getInt(ACTIVATED_PROFILES_FIFO_COUNT_PREF, -1);
+
+            if (count > -1) {
+                List<String> activateProfilesFifo = new ArrayList<>();
+
+                for (int i = 0; i < count; i++) {
+                    String profileId = preferences.getString(ACTIVATED_PROFILES_FIFO_ID_PREF + i, "0|0");
+//                    PPApplication.logE("[FIFO_TEST] DataWrapper.getActivatedProfilesFIFO", "#### profileId=" + profileId);
+                    activateProfilesFifo.add(profileId);
+                }
+                return activateProfilesFifo;
+            } else
+                return null;
+        //}
+    }
+
+    void saveActivatedProfilesFIFO(List<String> activateProfilesFifo)
+    {
+        //synchronized (PPApplication.profileActivationMutex) {
+            SharedPreferences preferences = context.getSharedPreferences(PPApplication.ACTIVATED_PROFILES_FIFO_PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = preferences.edit();
+
+            editor.clear();
+
+            if (activateProfilesFifo == null)
+                editor.putInt(ACTIVATED_PROFILES_FIFO_COUNT_PREF, -1);
+            else {
+                editor.putInt(ACTIVATED_PROFILES_FIFO_COUNT_PREF, activateProfilesFifo.size());
+
+                for (int i = 0; i < activateProfilesFifo.size(); i++) {
+//                    PPApplication.logE("[FIFO_TEST] DataWrapper.saveActivatedProfilesFIFO", "#### profileId=" + activateProfilesFifo.get(i));
+                    editor.putString(ACTIVATED_PROFILES_FIFO_ID_PREF + i, activateProfilesFifo.get(i));
+                }
+            }
+
+            editor.apply();
+        //}
+    }
+
+    void addProfileToFIFO(long profileId, long eventId) {
+        if (profileId == Profile.PROFILE_NO_ACTIVATE)
+            return;
+
+        synchronized (PPApplication.profileActivationMutex) {
+            List<String> activateProfilesFIFO = getActivatedProfilesFIFO();
+            if (activateProfilesFIFO == null)
+                activateProfilesFIFO = new ArrayList<>();
+            int size = activateProfilesFIFO.size();
+            if (size > PPApplication.ACTIVATED_PROFILES_FIFO_SIZE) {
+                activateProfilesFIFO.remove(0);
+                size--;
+            }
+            String toFifo = profileId + "|" + eventId;
+            if ((size == 0) || (!activateProfilesFIFO.get(size - 1).equals(toFifo)))
+                activateProfilesFIFO.add(toFifo);
+            saveActivatedProfilesFIFO(activateProfilesFIFO);
+        }
+    }
 }

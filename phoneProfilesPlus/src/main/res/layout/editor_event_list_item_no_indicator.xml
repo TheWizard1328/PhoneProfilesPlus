@@ -1,58 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--  Single List Item Design -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                android:id="@+id/event_list_item_root"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="1dp"
-                android:orientation="horizontal"
-                android:clickable="true"
-                android:background="?attr/selectableItemBackground"
-                android:focusable="true">
+    android:id="@+id/event_list_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="3dp"
+    android:paddingEnd="3dp"
+    android:paddingTop="1dp"
+    android:paddingBottom="1dp"
+    android:orientation="horizontal"
+    android:clickable="true"
+    android:background="?attr/selectableItemBackground"
+    android:focusable="true">
 
-    <LinearLayout 
-            android:id="@+id/event_list_item_buttons_root"
+    <LinearLayout
+        android:id="@+id/event_list_item_buttons_root"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:orientation="vertical"
+        android:layout_marginTop="5dp" >
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/event_list_item_edit_menu"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true"
-            android:orientation="horizontal" >
-
-        <ImageView
-            android:id="@+id/event_list_item_edit_menu"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:padding="0dp"
-            android:scaleType="center"
-            android:clickable="true"
+            android:layout_marginBottom="10dp"
+            android:padding="5dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="@string/preference_item_edit_menu"
-            android:src="?attr/editItemMenuIcon"
-            android:focusable="true"/>
+            android:src="?attr/editItemMenuIcon"/>
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/event_list_item_ignore_manual_activation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="@string/event_preferences_ForceRun"
+            android:src="@drawable/ic_ignore_manual_activation"/>
 
     </LinearLayout>
     
-    <RelativeLayout 
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_toStartOf="@id/event_list_item_buttons_root"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true"
-            android:padding="5dp" >
-    
+    <RelativeLayout
+        android:id="@+id/event_list_item_reLa1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_toStartOf="@id/event_list_item_buttons_root"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:paddingStart="0dp"
+        android:paddingEnd="5dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp" >
+
         <ImageView
             android:id="@+id/event_list_item_status"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:padding="5dp"
+            android:layout_marginStart="0dp"
             android:layout_alignParentStart="true"
             android:layout_alignParentTop="true"
             android:adjustViewBounds="true"
             android:contentDescription="@string/editor_event_list_item_event_status"
-            android:scaleType="@integer/profilePrefIndicatorScaleType"
-            android:src="@drawable/ic_event_status_stop"
-            android:paddingStart="2dp"
-            android:paddingEnd="2dp"
-            android:paddingTop="2dp" />
+            android:scaleType="centerCrop"
+            android:src="?attr/eventStopStatusIndicator"
+            android:background="?attr/selectableItemBackground" />
 
         <TextView
             android:id="@+id/event_list_item_event_name"
@@ -72,13 +87,15 @@
             android:id="@+id/event_list_item_profile_start_icon"
             android:layout_width="30dp"
             android:layout_height="30dp"
-            android:layout_alignParentStart="true"
-            android:layout_below="@id/event_list_item_status"
+            android:layout_marginStart="11dp"
+            android:layout_below="@id/event_list_item_event_name"
+            android:layout_toEndOf="@id/event_list_item_status"
             android:contentDescription="@string/editor_event_list_item_profile_start_icon"
-            android:scaleType="centerCrop"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
-            android:layout_marginTop="3dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:layout_marginTop="4dp"
             android:src="@drawable/ic_profile_default" />
 
         <TextView
@@ -89,21 +106,24 @@
             android:layout_toEndOf="@id/event_list_item_profile_start_icon"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:paddingTop="5dp"
+            android:layout_marginTop="5dp"
             android:text="@string/profile_preference_profile_not_set"
             android:textSize="15sp"
+            android:ellipsize="end"
             android:maxLines="1"/>
 
         <ImageView
             android:id="@+id/event_list_item_profile_end_icon"
             android:layout_width="30dp"
             android:layout_height="30dp"
-            android:layout_alignParentStart="true"
+            android:layout_marginStart="11dp"
             android:layout_below="@id/event_list_item_profile_start_icon"
+            android:layout_toEndOf="@id/event_list_item_status"
             android:contentDescription="@string/editor_event_list_item_profile_end_icon"
-            android:scaleType="centerCrop"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
             android:layout_marginTop="0dp"
             android:src="@drawable/ic_profile_default" />
 
@@ -115,9 +135,10 @@
             android:layout_toEndOf="@id/event_list_item_profile_end_icon"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:paddingTop="5dp"
+            android:layout_marginTop="5dp"
             android:text="@string/profile_preference_profile_not_set"
             android:textSize="15sp"
+            android:ellipsize="end"
             android:maxLines="1"/>
 
     </RelativeLayout>

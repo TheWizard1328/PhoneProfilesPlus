@@ -1,46 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--  Single List Item Design -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                android:id="@+id/profile_list_item_root"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="1dp"
-                android:paddingEnd="1dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:orientation="horizontal"
-                android:clickable="true"
-                android:background="?attr/selectableItemBackground"
-                android:focusable="true">
+    android:id="@+id/profile_list_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="0dp"
+    android:paddingEnd="0dp"
+    android:paddingTop="9dp"
+    android:paddingBottom="9dp"
+    android:orientation="horizontal"
+    android:clickable="true"
+    android:background="?attr/selectableItemBackground"
+    android:focusable="true">
 
-    <LinearLayout 
-            android:id="@+id/profile_list_item_buttons_root"
+    <LinearLayout
+        android:id="@+id/profile_list_item_buttons_root"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_alignParentEnd="true"
+        android:orientation="horizontal" >
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/profile_list_item_show_in_activator"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerVertical="true"
-            android:layout_alignParentEnd="true"
-            android:orientation="horizontal" >
-    
-        <ImageView
+            android:padding="5dp"
+            android:layout_marginEnd="3dp"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="@string/profile_preferences_showInActivator"
+            android:src="@drawable/ic_show_in_activator"/>
+
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/profile_list_item_edit_menu"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:padding="10dp"
-            android:scaleType="center"
-            android:clickable="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="@string/preference_item_edit_menu"
-            android:src="?attr/editItemMenuIcon"
-            android:focusable="true"/>
+            android:src="?attr/editItemMenuIcon"/>
         
     </LinearLayout>
     
-    <RelativeLayout 
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_toStartOf="@id/profile_list_item_buttons_root"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true" >
+    <RelativeLayout
+        android:id="@+id/profile_list_item_reLa1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_toStartOf="@id/profile_list_item_buttons_root"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true" >
 
         <sk.henrichg.phoneprofilesplus.DragHandle
             android:id="@+id/profile_list_drag_handle"
@@ -49,8 +57,8 @@
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:contentDescription="@string/preference_item_drag_handle"
-            android:paddingLeft="5dp"
-            android:paddingRight="5dp"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
             android:layout_marginStart="8dp"
             android:scaleType="center"
             android:src="?attr/dragHandleIcon"
@@ -59,45 +67,48 @@
 
         <ImageView
             android:id="@+id/profile_list_item_profile_icon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_centerVertical="true"
             android:layout_toEndOf="@id/profile_list_drag_handle"
             android:layout_marginStart="3dp"
             android:adjustViewBounds="true"
             android:contentDescription="@string/profile_preferences_profileIcon"
-            android:maxHeight="40dp"
-            android:maxWidth="40dp"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             android:src="@drawable/ic_profile_default" />
 
-        <TextView
-            android:id="@+id/profile_list_item_profile_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:layout_toEndOf="@id/profile_list_item_profile_icon"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text="@string/profile_name_default"
-            android:textSize="15sp"
-            android:maxLines="1"/>
-
-        <ImageView
-            android:id="@+id/profile_list_profile_pref_indicator"
+        <LinearLayout
+            android:id="@+id/profile_list_item_liLa1"
             android:layout_width="match_parent"
-            android:layout_height="15dp"
-            android:layout_below="@id/profile_list_item_profile_name"
-            android:layout_toEndOf="@id/profile_list_item_profile_icon"
-            android:adjustViewBounds="true"
-            android:contentDescription="@string/empty_string"
-            android:scaleType="@integer/profilePrefIndicatorScaleType"
-            android:src="@drawable/ic_profile_pref_volume_on"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/profile_list_item_profile_icon" >
+
+            <TextView
+                android:id="@+id/profile_list_item_profile_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/profile_name_default"
+                android:textSize="15sp"/>
+
+            <ImageView
+                android:id="@+id/profile_list_profile_pref_indicator"
+                android:layout_width="match_parent"
+                android:layout_height="14dp"
+                android:layout_marginTop="2dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/empty_string"
+                android:scaleType="@integer/profilePrefIndicatorScaleType"
+                android:src="@drawable/ic_profile_pref_volume_on"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp" />
+
+        </LinearLayout>
 
     </RelativeLayout>
-    
 
 </RelativeLayout>
 

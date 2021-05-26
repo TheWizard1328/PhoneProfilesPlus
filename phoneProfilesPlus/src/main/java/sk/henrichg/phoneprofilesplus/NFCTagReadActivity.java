@@ -4,10 +4,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v7.app.AppCompatActivity;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import java.util.Calendar;
+
+//import me.drakeet.support.toast.ToastCompat;
 
 public class NFCTagReadActivity extends AppCompatActivity {
 
@@ -18,53 +21,96 @@ public class NFCTagReadActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         overridePendingTransition(0, 0);
 
+//        PPApplication.logE("[BACKGROUND_ACTIVITY] NFCTagReadActivity.onCreate", "xxx");
+
         nfcManager = new NFCTagReadWriteManager(this);
         nfcManager.onActivityCreate();
 
-        nfcManager.setOnTagReadListener(new NFCTagReadWriteManager.TagReadListener() {
-            @Override
-            public void onTagRead(String tagRead) {
-                Toast.makeText(NFCTagReadActivity.this, "("+getString(R.string.app_name)+") "+getString(R.string.read_nfc_tag_readed)+": "+tagRead, Toast.LENGTH_LONG).show();
+        /*
+        @Override
+        public void onUidRead(String uid) {
+            ToastCompat.makeText(getApplicationContext(), "("+getString(R.string.ppp_app_name)+") "+getString(R.string.read_nfc_tag_read)+": "+uid, Toast.LENGTH_LONG).show();
 
-                final String _tagRead = tagRead;
+            final String _uid = uid;
+
+            Calendar now = Calendar.getInstance();
+            int gmtOffset = 0; //TimeZone.getDefault().getRawOffset();
+            final long _time = now.getTimeInMillis() + gmtOffset;
+
+            final Context appContext = getApplicationContext();
+            PPApplication.startHandlerThread("NFCTagReadActivity.OnTagReadListener.onUidRead");
+            final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    // get tag name from uid
+                    String tagName = DatabaseHandler.getInstance(appContext).getNFCTagNameByUid(_uid);
+                    if (!tagName.isEmpty()) {
+                        EventsHandler eventsHandler = new EventsHandler(appContext);
+                        eventsHandler.setEventNFCParameters(tagName, _time);
+                        eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_NFC_TAG);
+                    }
+                }
+            });
+
+            try {
+                NFCTagReadActivity.this.finish();
+            } catch (Exception ignored) {};
+        }
+        */
+        nfcManager.setOnTagReadListener(tagData -> {
+            if (Event.getGlobalEventsRunning()) {
+                PPApplication.showToast(getApplicationContext(), "(" + getString(R.string.ppp_app_name) + ") " + getString(R.string.read_nfc_tag_read) + ": " + tagData, Toast.LENGTH_LONG);
+
+                final String _tagData = tagData;
 
                 Calendar now = Calendar.getInstance();
                 int gmtOffset = 0; //TimeZone.getDefault().getRawOffset();
                 final long _time = now.getTimeInMillis() + gmtOffset;
 
-                //EventsHandlerJob.startForNFCTagSensor(getApplicationContext(), tagRead, time);
                 final Context appContext = getApplicationContext();
-                PPApplication.startHandlerThread("NFCTagReadActivity.OnTagReadListener");
+                PPApplication.startHandlerThread(/*"NFCTagReadActivity.OnTagReadListener.onTagRead"*/);
                 final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        EventsHandler eventsHandler = new EventsHandler(appContext);
-                        eventsHandler.setEventNFCParameters(_tagRead, _time);
-                        eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_NFC_TAG/*, false*/);
-                    }
+                handler.post(() -> {
+//                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=NFCTagReadActivity.OnTagReadListener.onTagRead");
+
+//                            PPApplication.logE("[EVENTS_HANDLER_CALL] NFCTagReadActivity,onCreate", "sensorType=SENSOR_TYPE_NFC_TAG");
+                    EventsHandler eventsHandler = new EventsHandler(appContext);
+                    eventsHandler.setEventNFCParameters(_tagData, _time);
+                    eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_NFC_TAG);
+
+                    //PPApplication.logE("****** EventsHandler.handleEvents", "END run - from=NFCTagReadActivity.OnTagReadListener.onTagRead");
                 });
 
-                NFCTagReadActivity.this.finish();
+                try {
+                    NFCTagReadActivity.this.finish();
+                } catch (Exception e) {
+                    PPApplication.recordException(e);
+                }
             }
         });
 
         /*nfcManager.setOnTagWriteListener(new NFCTagReadWriteManager.TagWriteListener() {
             @Override
             public void onTagWritten() {
-                Toast.makeText(NFCTagReadActivity.this, "tag write finished", Toast.LENGTH_LONG).show();
-                NFCTagReadActivity.this.finish();
+                ToastCompat.makeText(getApplicationContext(), "tag write finished", Toast.LENGTH_LONG).show();
+                try {
+                    NFCTagReadActivity.this.finish();
+                } catch (Exception ignored) {};
             }
-        });*/
+        });
 
         nfcManager.setOnTagWriteErrorListener(new NFCTagReadWriteManager.TagWriteErrorListener() {
             @Override
             public void onTagWriteError(NFCTagWriteException exception) {
-                //Toast.makeText(NFCTagReadActivity.this, exception.getType().toString(), Toast.LENGTH_LONG).show();
-                Toast.makeText(NFCTagReadActivity.this, "("+getString(R.string.app_name)+") "+getString(R.string.read_nfc_tag_error), Toast.LENGTH_LONG).show();
-                NFCTagReadActivity.this.finish();
+                //ToastCompat.makeText(getApplicationContext(), exception.getType().toString(), Toast.LENGTH_LONG).show();
+                ToastCompat.makeText(getApplicationContext(), "("+getString(R.string.ppp_app_name)+") "+getString(R.string.write_nfc_tag_error), Toast.LENGTH_LONG).show();
+                try {
+                    NFCTagReadActivity.this.finish();
+                } catch (Exception ignored) {};
             }
         });
+        */
 
     }
 

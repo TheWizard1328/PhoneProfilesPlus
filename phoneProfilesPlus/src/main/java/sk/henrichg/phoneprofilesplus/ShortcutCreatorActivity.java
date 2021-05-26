@@ -2,11 +2,12 @@ package sk.henrichg.phoneprofilesplus;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.WindowManager;
 import android.view.WindowManager.LayoutParams;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class ShortcutCreatorActivity extends AppCompatActivity {
 
@@ -14,8 +15,10 @@ public class ShortcutCreatorActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        GlobalGUIRoutines.setTheme(this, true, false, false);
-        GlobalGUIRoutines.setLanguage(getBaseContext());
+//        PPApplication.logE("[BACKGROUND_ACTIVITY] ShortcutCreatorActivity.onCreate", "xxx");
+
+        GlobalGUIRoutines.setTheme(this, true, false/*, false*/, false);
+        //GlobalGUIRoutines.setLanguage(this);
 
     // set window dimensions ----------------------------------------------------------
 
@@ -38,7 +41,7 @@ public class ShortcutCreatorActivity extends AppCompatActivity {
 
         // action bar height
         TypedValue tv = new TypedValue();
-        if (getTheme().resolveAttribute(android.support.v7.appcompat.R.attr.actionBarSize, tv, true))
+        if (getTheme().resolveAttribute(androidx.appcompat.R.attr.actionBarSize, tv, true))
             actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data,getResources().getDisplayMetrics());
 
         // set max. dimensions for display orientation
@@ -47,15 +50,14 @@ public class ShortcutCreatorActivity extends AppCompatActivity {
             //popupWidth = Math.round(popupWidth / 100f * 50f);
             //popupMaxHeight = Math.round(popupMaxHeight / 100f * 90f);
             popupWidth = popupWidth / 100f * 50f;
-            popupMaxHeight = popupMaxHeight / 100f * 90f;
         }
         else
         {
             //popupWidth = Math.round(popupWidth / 100f * 70f);
             //popupMaxHeight = Math.round(popupMaxHeight / 100f * 90f);
             popupWidth = popupWidth / 100f * 80f;
-            popupMaxHeight = popupMaxHeight / 100f * 90f;
         }
+        popupMaxHeight = popupMaxHeight / 100f * 90f;
 
         // add action bar height
         popupHeight = popupHeight + actionBarHeight;
@@ -63,7 +65,7 @@ public class ShortcutCreatorActivity extends AppCompatActivity {
         final float scale = getResources().getDisplayMetrics().density;
 
         // add list items height
-        int profileCount = DatabaseHandler.getInstance(getApplicationContext()).getProfilesCount(false, getApplicationContext());
+        int profileCount = DatabaseHandler.getInstance(getApplicationContext()).getProfilesCount(/*false*/);
         ++profileCount; // for restart events
         if (profileCount > 0) {
             popupHeight = popupHeight + (60f * scale * profileCount); // item
@@ -86,8 +88,10 @@ public class ShortcutCreatorActivity extends AppCompatActivity {
 
         //overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
 
-        if (getSupportActionBar() != null)
+        if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle(R.string.title_activity_shortcut_creator);
+            getSupportActionBar().setElevation(0/*GlobalGUIRoutines.dpToPx(1)*/);
+        }
 
         //databaseHandler = new DatabaseHandler(this);
 
@@ -97,8 +101,8 @@ public class ShortcutCreatorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy()
     {
-    //	Debug.stopMethodTracing();
         super.onDestroy();
+    //	Debug.stopMethodTracing();
     }
     */
 

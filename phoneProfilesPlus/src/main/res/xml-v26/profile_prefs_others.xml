@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:title="@string/profile_preferences_category_others"
+    app:key="prf_pref_othersCategory" >
+
+    <ListPreference
+        app:title="@string/profile_preferences_devicePowerSaveMode"
+        app:summary="@string/array_pref_no_change"
+        app:key="prf_pref_devicePowerSaveMode"
+        app:defaultValue="0"
+        app:entries="@array/hardwareModeArray"
+        app:entryValues="@array/hardwareModeValues"
+        app:layout="@layout/mp_preference_material_widget" />
+    <ListPreference
+        app:title="@string/profile_preferences_deviceRunApplicationsShortcutsChange"
+        app:summary="@string/array_pref_no_change"
+        app:key="prf_pref_deviceRunApplicationChange"
+        app:defaultValue="0"
+        app:entries="@array/runApplicationArray"
+        app:entryValues="@array/runApplicationValues"
+        app:layout="@layout/mp_preference_material_widget" />
+    <sk.henrichg.phoneprofilesplus.ApplicationsDialogPreferenceX
+        app:defaultValue="-"
+        app:key="prf_pref_deviceRunApplicationPackageName"
+        app:title="@string/profile_preferences_deviceRunApplicationsShortcutsPackageName"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="prf_pref_deviceCloseAllApplicationsInfo"
+        app:title="@string/profile_preferences_deviceCloseAllApplications"
+        app:summary="@string/profile_preferences_deviceCloseAllApplicationsInfo_summary"
+        app:widgetLayout="@layout/widget_info_preference"
+        app:layout="@layout/mp_preference_material_widget" />
+    <ListPreference
+        app:title="@string/profile_preferences_deviceCloseAllApplications"
+        app:summary="@string/array_pref_no_change"
+        app:key="prf_pref_deviceCloseAllApplications"
+        app:defaultValue="0"
+        app:entries="@array/closeAllApplicationsArray"
+        app:entryValues="@array/closeAllApplicationsValues"
+        app:layout="@layout/mp_preference_material_widget" />
+
+    <Preference
+        app:title="@string/profile_preferences_deviceForceStopApplicationsChange"
+        app:key="prf_pref_forceStopApplicationsCategoryRoot"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:layout="@layout/mp_preference_material_widget"
+        app:fragment="sk.henrichg.phoneprofilesplus.ProfilesPrefsActivity$ProfilesPrefsForceStopApplications" />
+
+    <sk.henrichg.phoneprofilesplus.GenerateNotificationDialogPreferenceX
+        app:defaultValue="0|0||"
+        app:key="prf_pref_generateNotification"
+        app:title="@string/profile_preferences_generateNotification"
+        app:layout="@layout/mp_preference_material_widget" />
+
+</androidx.preference.PreferenceScreen>

@@ -3,9 +3,17 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/PhoneProfilesPlus.iml" filepath="$PROJECT_DIR$/PhoneProfilesPlus.iml" />
-      <module fileurl="file://$PROJECT_DIR$/RootShell/RootShell.iml" filepath="$PROJECT_DIR$/RootShell/RootShell.iml" />
-      <module fileurl="file://$PROJECT_DIR$/RootTools/RootTools.iml" filepath="$PROJECT_DIR$/RootTools/RootTools.iml" />
-      <module fileurl="file://$PROJECT_DIR$/phoneProfilesPlus/phoneProfilesPlus.iml" filepath="$PROJECT_DIR$/phoneProfilesPlus/phoneProfilesPlus.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/AndroidClearChroma/PhoneProfilesPlus.AndroidClearChroma.iml" filepath="$PROJECT_DIR$/.idea/modules/AndroidClearChroma/PhoneProfilesPlus.AndroidClearChroma.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/RootShell/PhoneProfilesPlus.RootShell.iml" filepath="$PROJECT_DIR$/.idea/modules/RootShell/PhoneProfilesPlus.RootShell.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/RootTools/PhoneProfilesPlus.RootTools.iml" filepath="$PROJECT_DIR$/.idea/modules/RootTools/PhoneProfilesPlus.RootTools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/ToastCompat/PhoneProfilesPlus.ToastCompat.iml" filepath="$PROJECT_DIR$/.idea/modules/ToastCompat/PhoneProfilesPlus.ToastCompat.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/android-betterpickers/PhoneProfilesPlus.android-betterpickers.iml" filepath="$PROJECT_DIR$/.idea/modules/android-betterpickers/PhoneProfilesPlus.android-betterpickers.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/common/PhoneProfilesPlus.common.iml" filepath="$PROJECT_DIR$/.idea/modules/common/PhoneProfilesPlus.common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/noobcameraflash/PhoneProfilesPlus.noobcameraflash.iml" filepath="$PROJECT_DIR$/.idea/modules/noobcameraflash/PhoneProfilesPlus.noobcameraflash.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/phoneProfilesImport/PhoneProfilesPlus.phoneProfilesImport.iml" filepath="$PROJECT_DIR$/.idea/modules/phoneProfilesImport/PhoneProfilesPlus.phoneProfilesImport.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/phoneProfilesPlus/PhoneProfilesPlus.phoneProfilesPlus.iml" filepath="$PROJECT_DIR$/.idea/modules/phoneProfilesPlus/PhoneProfilesPlus.phoneProfilesPlus.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/recyclerview-fastscroll/PhoneProfilesPlus.recyclerview-fastscroll.iml" filepath="$PROJECT_DIR$/.idea/modules/recyclerview-fastscroll/PhoneProfilesPlus.recyclerview-fastscroll.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/time-duration-picker/PhoneProfilesPlus.time-duration-picker.iml" filepath="$PROJECT_DIR$/.idea/modules/time-duration-picker/PhoneProfilesPlus.time-duration-picker.iml" />
     </modules>
   </component>
 </project>

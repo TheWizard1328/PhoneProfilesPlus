@@ -50,11 +50,11 @@ class RootToolsSmall {
             return false;
         }
 
-        Process proc = null;
+        Process process = null;
         OutputStreamWriter osw = null;
 
         try { // Run Script
-            proc = new ProcessBuilder("su").redirectErrorStream(true).start();
+            process = new ProcessBuilder("su").redirectErrorStream(true).start();
             osw = new OutputStreamWriter(proc.getOutputStream(), "UTF-8");
             osw.write(command);
             osw.flush();
@@ -73,9 +73,9 @@ class RootToolsSmall {
             }
         }
         try {
-            if (proc != null) {
-                proc.waitFor();
-                proc.destroy();
+            if (process != null) {
+                process.waitFor();
+                process.destroy();
             } else {
                 return false;
             }
@@ -84,13 +84,13 @@ class RootToolsSmall {
             //e.printStackTrace();
             return false;
         }
-        return proc.exitValue() == 0;
+        return process.exitValue() == 0;
     }
 
     public static boolean runJavaCommand(Class<?> mainClass, String name, Context context, Object cmdParam) {
     try {
       String cmd = "export CLASSPATH=" +
-              context.getPackageManager().getPackageInfo(context.getPackageName(), 0).applicationInfo.sourceDir +
+              context.getPackageManager().getPackageInfo(context.PPApplication.PACKAGE_NAME, 0).applicationInfo.sourceDir +
               "\nexec app_process $base/bin " + mainClass.getName() + " " + cmdParam + " \"$@\"\n";
       
       FileOutputStream fos = context.openFileOutput(name, Context.MODE_PRIVATE);

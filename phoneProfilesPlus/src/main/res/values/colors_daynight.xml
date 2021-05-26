@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--<color name="primary">#F7F7F7</color>-->
+    <color name="primary">#FFFFFF</color>
+    <color name="primaryDark">#FFFFFF</color>
+    <color name="accent">#DC8160</color>
+    <color name="accent_disabled">#70DC8160</color>
+    <color name="navigationBar">#000000</color>
+
+    <color name="activityBackgroundColor">#FFFFFFFF</color>
+    <color name="activityWhiteTextColor">#FF000000</color>
+    <color name="activityNormalTextColor">#FF404040</color>
+    <color name="activitySecondaryTextColor">#BF000000</color>
+    <color name="activityDisabledTextColor">#42000000</color>
+    <color name="activityCommandBackgroundColor">#1F000000</color>
+    <color name="activityPopupMenuBackgroundColor">#FFFAFAFA</color>
+
+    <color name="notificationDecorationColor">#DC8160</color>
+
+    <!--<color name="activityPopupBackground">#FFd0d0d0</color>-->
+    <!--<color name="navigationDrawerTextColor">#ff000000</color>-->
+<!--    <color name="navigationDrawerSubTextColor">#80000000</color> -->
+    <!--<color name="navigationDrawerBackground">#fffafafa</color>-->
+    <!--<color name="navigationDrawerInsetForeground">#A7A7A7</color>-->
+    <!--<color name="navigationDrawerItemBackground">#80DC8160</color>-->
+    <!--<color name="navigationDrawerItemBackgroundPressed">#0F000000</color>-->
+<!--    <color name="preferenceDialogBackground">#FFFFFFFF</color>-->
+<!--    <color name="editorDrawerListHeaderTitleColor">#FF000000</color>-->
+    <color name="dialog_divider">#17000000</color>
+
+    <color name="altype_other">#FFD0D0D0</color>
+
+    <color name="editorFilterTitleColor">#FF000000</color>
+    <color name="editorFilterBackgroundColor">#FFF7F7F7</color>
+
+    <color name="tabTargetHelpOuterCircleColor">#FFDC8160</color>
+    <color name="tabTargetHelpTargetCircleColor">#FFFFFFFF</color>
+    <color name="tabTargetHelpTextColor">#FF000000</color>
+
+    <color name="fastScrollTrackPP">#FFEFEFEF</color>
+    <color name="fastScrollThumbPP">#FFDC8160</color>
+    <color name="fastScrollPopupBackgroundPP">#FFDC8160</color>
+    <color name="fastScrollPopupTextPP">#FFFFFFFF</color>
+
+<!--    <color name="eventPauseTextColor">#FF00a7d8</color>-->
+    <color name="eventStopTextColor">#FF6c6c6c</color>
+<!--    <color name="eventInDelayTextColor">#FFffb000</color>-->
+
+    <color name="sensor_pass_status_passed">#FF00B000</color>
+    <color name="sensor_pass_status_not_passed">#FFffb000</color>
+    <color name="sensor_pass_status_waiting">#FF0060FF</color>
+
+    <color name="map_edited_location_marker_stroke">#FFDC8160</color>
+    <color name="map_edited_location_marker_fill">#77DC8160</color>
+    <color name="map_last_location_marker_stroke">#FF76b8d1</color>
+    <color name="map_last_location_marker_fill">#7776b8d1</color>
+
+    <color name="toastBackgroundColor">#FF707070</color>
+    <color name="toastTextColor">#FFFFFFFF</color>
+
+    <color name="toastBorderColor">#FF707070</color>
+    <color name="dialogBorderColor">#FFFFFFFF</color>
+    <color name="buttonBorderColor">#FFAAAAAA</color>
+    <color name="alertButtonBorderColor">#FFAAAAAA</color>
+    <color name="popupMenuBorderColor">#FFCCCCCC</color>
+    <color name="profileIconBorderColor">#FFCCCCCC</color>
+    <color name="cardViewBorderColor">#FFFFFFFF</color>
+
+</resources>

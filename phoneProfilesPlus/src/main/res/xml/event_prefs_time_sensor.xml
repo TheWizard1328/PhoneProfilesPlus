@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:title="@string/event_preferences_category_eventTimeParameters"
+    app:key="eventTimeCategory" >
+
+    <SwitchPreferenceCompat
+        app:key="eventTimeEnabled"
+        app:title="@string/event_preferences_enable_sensor"
+        app:defaultValue="false"
+        app:layout="@layout/mp_preference_material_widget" />
+    <sk.henrichg.phoneprofilesplus.DaysOfWeekPreferenceX
+        app:key="eventTimeDays"
+        app:defaultValue="@string/empty_string"
+        app:title="@string/event_preferences_time_timeDays"
+        app:dependency="eventTimeEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    <ListPreference
+        app:title="@string/event_preferences_time_timeType"
+        app:summary="@string/event_preference_sensor_time_type_exact"
+        app:key="eventTimeType"
+        app:defaultValue="0"
+        app:entries="@array/eventTimeTypeArray"
+        app:entryValues="@array/eventTimeTypeValues"
+        app:dependency="eventTimeEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    <sk.henrichg.phoneprofilesplus.TimeDialogPreferenceX
+        app:key="eventTimeStartTime"
+        app:defaultValue="0"
+        app:title="@string/event_preferences_time_startTime"
+        app:dependency="eventTimeEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    <!--
+    <SwitchPreferenceCompat
+        app:key="eventTimeUseEndTime"
+        app:title="@string/event_preferences_time_useEndTime"
+        app:defaultValue="false"
+        app:dependency="eventTimeEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    -->
+    <sk.henrichg.phoneprofilesplus.TimeDialogPreferenceX
+        app:key="eventTimeEndTime"
+        app:defaultValue="0"
+        app:title="@string/event_preferences_time_endTime"
+        app:dependency="eventTimeEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="eventTimeLocationSystemSettings"
+        app:title="@string/phone_profiles_pref_eventLocationSystemSettings"
+        app:summary="@string/phone_profiles_pref_eventWiFiLocationSystemSettings_summary"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:dependency="eventTimeEnabled"
+        app:layout="@layout/mp_preference_material_widget" />
+    <Preference
+        app:key="eventTimeBackgroundScanningAppSettings"
+        app:title="@string/phone_profiles_pref_category_background_scanning"
+        app:summary="@string/phone_profiles_pref_eventBackgroundScanningAppSettings_summary"
+        app:dependency="eventTimeEnabled"
+        app:widgetLayout="@layout/widget_start_activity_preference"
+        app:layout="@layout/mp_preference_material_widget" />
+
+</androidx.preference.PreferenceScreen>

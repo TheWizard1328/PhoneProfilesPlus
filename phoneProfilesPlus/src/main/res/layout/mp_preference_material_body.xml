@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mp_preference_material_body_root"
     android:layout_width="0dp"
     android:layout_height="wrap_content"
     android:paddingTop="16dp"
@@ -11,8 +12,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?attr/textAppearanceListItem"
-        android:ellipsize="marquee"
-        android:textColor="?android:textColorPrimary"
+        android:textColor="?android:attr/textColorPrimary"
         android:singleLine="false"/>
 
     <TextView
@@ -21,9 +21,8 @@
         android:layout_height="wrap_content"
         android:layout_alignStart="@android:id/title"
         android:layout_below="@android:id/title"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-        android:textColor="?android:textColorSecondary"
-        android:typeface="sans"
-        android:maxLines="10" />
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="?android:attr/textColorSecondary"
+        android:singleLine="false" />
 
 </RelativeLayout>

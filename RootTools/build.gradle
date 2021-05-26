@@ -10,6 +10,11 @@ android {
         targetSdkVersion ppVersions.targetSdk
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -21,5 +26,8 @@ android {
 
 dependencies {
     implementation project(':RootShell')
-    implementation "com.android.support:appcompat-v7:$ppVersions.supportLib"
+    //noinspection GradleDependency
+    implementation "androidx.appcompat:appcompat:$ppVersions.appcompatXLib"
+    //noinspection GradleDependency
+    implementation "androidx.appcompat:appcompat-resources:$ppVersions.appcompatXLib"
 }

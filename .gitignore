@@ -3,9 +3,17 @@
 /.idea/workspace.xml
 /.idea/libraries
 /.idea/caches
-/.idea/codeStyles
+/.idea/misc.xml
 /build
 
 /RootShell/build
 /RootTools/build
+/android-betterpickers/build
+/time-duration-picker/build
 /phoneProfilesPlus/build
+/phoneProfilesPlus/google-services.json
+/phoneProfilesPlus/fabric.properties
+/phoneProfilesPlus/src/debug/res/values/google_maps_api.xml
+/phoneProfilesPlus/src/release/res/values/google_maps_api.xml
+/phoneProfilesPlus/src/debug/res/values/google_backup_api.xml
+/phoneProfilesPlus/src/release/res/values/google_backup_api.xml

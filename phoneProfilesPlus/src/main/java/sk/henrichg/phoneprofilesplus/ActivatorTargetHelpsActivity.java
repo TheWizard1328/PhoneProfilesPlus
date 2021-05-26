@@ -1,12 +1,15 @@
 package sk.henrichg.phoneprofilesplus;
 
+import android.content.Intent;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 public class ActivatorTargetHelpsActivity extends AppCompatActivity {
 
     public static ActivatorTargetHelpsActivity activity;
-    public static ActivateProfileActivity activatorActivity;
+    //public static ActivateProfileActivity activatorActivity;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -17,17 +20,23 @@ public class ActivatorTargetHelpsActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume()
+    protected void onStart()
     {
-        super.onResume();
+        super.onStart();
 
-        if (activatorActivity == null) {
+        /*if (ActivateProfileActivity.getInstance() == null) {
             finish();
             return;
-        }
+        }*/
 
-        //GlobalGUIRoutines.setTheme(this, true, true, false);
-        activatorActivity.showTargetHelps();
+        //GlobalGUIRoutines.setTheme(this, true, true/*, false*/);
+        //GlobalGUIRoutines.setLanguage(this);
+
+//        PPApplication.logE("[LOCAL_BROADCAST_CALL] ActivatorTargetHelpsActivity.onStart", "xxx");
+        Intent intent = new Intent(PPApplication.PACKAGE_NAME + ".ShowActivatorTargetHelpsBroadcastReceiver");
+        intent.putExtra(ActivateProfileActivity.EXTRA_SHOW_TARGET_HELPS_FOR_ACTIVITY, true);
+        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
+        //ActivateProfileActivity.getInstance().showTargetHelps();
     }
 
     @Override

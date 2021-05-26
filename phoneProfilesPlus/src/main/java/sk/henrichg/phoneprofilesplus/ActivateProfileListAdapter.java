@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Handler;
+import android.text.Spannable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,19 +37,23 @@ class ActivateProfileListAdapter extends BaseAdapter
 
     public int getCount()
     {
-        fragment.textViewNoData.setVisibility(
-                (((activityDataWrapper.profileList != null) &&
-                        (activityDataWrapper.profileList.size() > 0))
-                ) ? View.GONE : View.VISIBLE);
+        synchronized (activityDataWrapper.profileList) {
+            boolean someData = activityDataWrapper.profileListFilled &&
+                    (activityDataWrapper.profileList.size() > 0);
+            fragment.textViewNoData.setVisibility(someData ? View.GONE : View.VISIBLE);
+            /*if (fragment.gridViewDivider != null)
+                fragment.gridViewDivider.setBackgroundResource(
+                        GlobalGUIRoutines.getThemeActivatorGridDividerColor(someData, fragment.getActivity()));*/
 
-        int count = 0;
-        if (activityDataWrapper.profileList != null) {
-            for (Profile profile : activityDataWrapper.profileList) {
-                if (profile._showInActivator)
-                    ++count;
+            int count = 0;
+            if (activityDataWrapper.profileListFilled) {
+                for (Profile profile : activityDataWrapper.profileList) {
+                    if (profile._showInActivator)
+                        ++count;
+                }
             }
+            return count;
         }
-        return count;
     }
 
     public Object getItem(int position)
@@ -57,22 +62,22 @@ class ActivateProfileListAdapter extends BaseAdapter
             return null;
         else
         {
-            Profile _profile = null;
+            synchronized (activityDataWrapper.profileList) {
+                Profile _profile = null;
 
-            int pos = -1;
-            for (Profile profile : activityDataWrapper.profileList)
-            {
-                if (profile._showInActivator)
-                    ++pos;
+                int pos = -1;
+                for (Profile profile : activityDataWrapper.profileList) {
+                    if (profile._showInActivator)
+                        ++pos;
 
-                if (pos == position)
-                {
-                    _profile = profile;
-                    break;
+                    if (pos == position) {
+                        _profile = profile;
+                        break;
+                    }
                 }
-            }
 
-            return _profile;
+                return _profile;
+            }
         }
     }
 
@@ -92,7 +97,7 @@ class ActivateProfileListAdapter extends BaseAdapter
         return -1;
     }
     */
-
+    /*
     int getItemPosition(Profile profile)
     {
         if (profile == null)
@@ -111,25 +116,28 @@ class ActivateProfileListAdapter extends BaseAdapter
         }
         return -1;
     }
-
+    */
     public Profile getActivatedProfile()
     {
-        for (Profile p : activityDataWrapper.profileList)
-        {
-            if (p._checked)
-            {
-                return p;
+        synchronized (activityDataWrapper.profileList) {
+            for (Profile p : activityDataWrapper.profileList) {
+                if (p._checked) {
+                    return p;
+                }
             }
-        }
 
-        return null;
+            return null;
+        }
     }
 
     public void notifyDataSetChanged(boolean refreshIcons) {
         if (refreshIcons) {
-            for (Profile profile : activityDataWrapper.profileList) {
-                activityDataWrapper.refreshProfileIcon(profile, true,
-                        ApplicationPreferences.applicationActivatorPrefIndicator(activityDataWrapper.context));
+            synchronized (activityDataWrapper.profileList) {
+                for (Profile profile : activityDataWrapper.profileList) {
+                    activityDataWrapper.refreshProfileIcon(profile, true,
+                            //ApplicationPreferences.applicationActivatorPrefIndicator(activityDataWrapper.context));
+                            ApplicationPreferences.applicationEditorPrefIndicator);
+                }
             }
         }
         notifyDataSetChanged();
@@ -148,20 +156,25 @@ class ActivateProfileListAdapter extends BaseAdapter
         ViewHolder holder;
 
         View vi = convertView;
+
+        boolean applicationActivatorGridLayout = ApplicationPreferences.applicationActivatorGridLayout;
+
         if (convertView == null)
         {
             holder = new ViewHolder();
             LayoutInflater inflater = LayoutInflater.from(fragment.getActivity());
-            if (!ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity()))
+            if (!applicationActivatorGridLayout)
             {
-                if (ApplicationPreferences.applicationActivatorPrefIndicator(fragment.getActivity()))
+                //boolean applicationActivatorPrefIndicator = ApplicationPreferences.applicationActivatorPrefIndicator;
+                boolean applicationActivatorPrefIndicator = ApplicationPreferences.applicationEditorPrefIndicator;
+                if (applicationActivatorPrefIndicator)
                     vi = inflater.inflate(R.layout.activate_profile_list_item, parent, false);
                 else
                     vi = inflater.inflate(R.layout.activate_profile_list_item_no_indicator, parent, false);
                 //holder.listItemRoot = vi.findViewById(R.id.act_prof_list_item_root);
                 holder.profileName = vi.findViewById(R.id.act_prof_list_item_profile_name);
                 holder.profileIcon = vi.findViewById(R.id.act_prof_list_item_profile_icon);
-                if (ApplicationPreferences.applicationActivatorPrefIndicator(fragment.getActivity()))
+                if (applicationActivatorPrefIndicator)
                     holder.profileIndicator = vi.findViewById(R.id.act_prof_list_profile_pref_indicator);
             }
             else
@@ -180,33 +193,34 @@ class ActivateProfileListAdapter extends BaseAdapter
 
         final Profile profile = (Profile)getItem(position);
 
-        if ((ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity())) &&
+        if ((applicationActivatorGridLayout) &&
                 (profile._porder == ActivateProfileListFragment.PORDER_FOR_IGNORED_PROFILE)) {
             holder.profileName.setText(R.string.empty_string);
             holder.profileIcon.setImageResource(R.drawable.ic_empty);
         }
         else {
-            if (profile._checked && (!ApplicationPreferences.applicationActivatorHeader(fragment.getActivity()))) {
-                holder.profileName.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
-                if (ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity()))
+            //boolean applicationActivatorHeader = ApplicationPreferences.applicationActivatorHeader(fragment.getActivity());
+            /*if (profile._checked && (!applicationActivatorHeader)) {
+                holder.profileName.setTypeface(//Typeface.create("sans-serif-condensed", Typeface.BOLD)
+                    null, Typeface.BOLD);
+                if (applicationActivatorGridLayout)
                     holder.profileName.setTextSize(14);
                 else
                     holder.profileName.setTextSize(16);
+                //noinspection ConstantConditions
                 holder.profileName.setTextColor(GlobalGUIRoutines.getThemeAccentColor(fragment.getActivity()));
-            } else {
-                holder.profileName.setTypeface(Typeface.create("sans-serif-condensed", Typeface.NORMAL));
-                if (ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity()))
+            } else*/ {
+                holder.profileName.setTypeface(null, Typeface.NORMAL);
+                if (applicationActivatorGridLayout)
                     holder.profileName.setTextSize(13);
                 else
                     holder.profileName.setTextSize(15);
-                holder.profileName.setTextColor(GlobalGUIRoutines.getThemeTextColor(fragment.getActivity()));
+                //noinspection ConstantConditions
+                holder.profileName.setTextColor(GlobalGUIRoutines.getThemeWhiteTextColor(fragment.getActivity()));
             }
 
-            String profileName = DataWrapper.getProfileNameWithManualIndicator(profile,
-                    (!ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity())) &&
-                            profile._checked &&
-                            (!ApplicationPreferences.applicationActivatorHeader(fragment.getActivity())), true,
-                    ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity()),
+            Spannable profileName = DataWrapper.getProfileNameWithManualIndicator(profile,
+                    false, "", true, false, applicationActivatorGridLayout,
                     activityDataWrapper);
             holder.profileName.setText(profileName);
 
@@ -216,23 +230,26 @@ class ActivateProfileListAdapter extends BaseAdapter
                     holder.profileIcon.setImageBitmap(profile._iconBitmap);
                 else {
                     //holder.profileIcon.setImageBitmap(null);
-                    int res = vi.getResources().getIdentifier(profile.getIconIdentifier(), "drawable",
-                            vi.getContext().getPackageName());
+                    //int res = vi.getResources().getIdentifier(profile.getIconIdentifier(), "drawable",
+                    //        vi.getContext().PPApplication.PACKAGE_NAME);
+                    int res = Profile.getIconResource(profile.getIconIdentifier());
                     holder.profileIcon.setImageResource(res); // icon resource
                 }
             } else {
                 holder.profileIcon.setImageBitmap(profile._iconBitmap);
             }
 
-            if ((ApplicationPreferences.applicationActivatorPrefIndicator(fragment.getActivity())) && (!ApplicationPreferences.applicationActivatorGridLayout(fragment.getActivity()))) {
-                if (profile._preferencesIndicator != null) {
-                    //profilePrefIndicatorImageView.setImageBitmap(null);
-                    //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
-                    //profilePrefIndicatorImageView.setImageBitmap(bitmap);
-                    holder.profileIndicator.setImageBitmap(profile._preferencesIndicator);
+            if (holder.profileIndicator != null) {
+                //if ((ApplicationPreferences.applicationActivatorPrefIndicator(fragment.getActivity())) && (!applicationActivatorGridLayout)) {
+                if (ApplicationPreferences.applicationEditorPrefIndicator && (!applicationActivatorGridLayout)) {
+                    if (profile._preferencesIndicator != null) {
+                        //profilePrefIndicatorImageView.setImageBitmap(null);
+                        //Bitmap bitmap = ProfilePreferencesIndicator.paint(profile, vi.getContext());
+                        //profilePrefIndicatorImageView.setImageBitmap(bitmap);
+                        holder.profileIndicator.setImageBitmap(profile._preferencesIndicator);
+                    } else
+                        holder.profileIndicator.setImageResource(R.drawable.ic_empty);
                 }
-                else
-                    holder.profileIndicator.setImageResource(R.drawable.ic_empty);
             }
         }
 
@@ -248,27 +265,48 @@ class ActivateProfileListAdapter extends BaseAdapter
         //if (fragment.targetHelpsSequenceStarted)
         //    return;
 
-        ApplicationPreferences.getSharedPreferences(activity);
+        if (ActivatorTargetHelpsActivity.activity == null)
+            return;
 
-        if (ApplicationPreferences.preferences.getBoolean(PREF_START_TARGET_HELPS, true)) {
+        if (ApplicationPreferences.prefActivatorAdapterStartTargetHelps) {
 
             //Log.d("ActivateProfileListAdapter.showTargetHelps", "PREF_START_TARGET_HELPS=true");
 
-            SharedPreferences.Editor editor = ApplicationPreferences.preferences.edit();
+            SharedPreferences.Editor editor = ApplicationPreferences.getEditor(activityDataWrapper.context);
             editor.putBoolean(PREF_START_TARGET_HELPS, false);
             editor.apply();
+            ApplicationPreferences.prefActivatorAdapterStartTargetHelps = false;
 
             Rect profileItemTarget = new Rect(0, 0, listItemView.getHeight(), listItemView.getHeight());
             int[] screenLocation = new int[2];
             listItemView.getLocationOnScreen(screenLocation);
-            profileItemTarget.offset(screenLocation[0] + listItemView.getWidth() / 2 - listItemView.getHeight() / 2, screenLocation[1]);
+            //listItemView.getLocationInWindow(screenLocation);
+            if (ApplicationPreferences.applicationActivatorGridLayout)
+                profileItemTarget.offset(screenLocation[0] + listItemView.getWidth() / 2 - listItemView.getHeight() / 2, screenLocation[1]);
+            else
+                profileItemTarget.offset(screenLocation[0] + 100, screenLocation[1]);
 
             final TapTargetSequence sequence = new TapTargetSequence(ActivatorTargetHelpsActivity.activity);
+
+            //String appTheme = ApplicationPreferences.applicationTheme(activity, true);
+            int outerCircleColor = R.color.tabTargetHelpOuterCircleColor;
+//                if (appTheme.equals("dark"))
+//                    outerCircleColor = R.color.tabTargetHelpOuterCircleColor_dark;
+            int targetCircleColor = R.color.tabTargetHelpTargetCircleColor;
+//                if (appTheme.equals("dark"))
+//                    targetCircleColor = R.color.tabTargetHelpTargetCircleColor_dark;
+            int textColor = R.color.tabTargetHelpTextColor;
+//                if (appTheme.equals("dark"))
+//                    textColor = R.color.tabTargetHelpTextColor_dark;
+            //boolean tintTarget = !appTheme.equals("white");
 
             sequence.targets(
                     TapTarget.forBounds(profileItemTarget, activity.getString(R.string.activator_activity_targetHelps_activateProfile_title), activity.getString(R.string.activator_activity_targetHelps_activateProfile_description))
                             .transparentTarget(true)
-                            .textColorInt(0xFFFFFF)
+                            .outerCircleColor(outerCircleColor)
+                            .targetCircleColor(targetCircleColor)
+                            .textColor(textColor)
+                            .tintTarget(true)
                             .drawShadow(true)
                             .id(1)
             );
@@ -279,15 +317,18 @@ class ActivateProfileListAdapter extends BaseAdapter
                 public void onSequenceFinish() {
                     //targetHelpsSequenceStarted = false;
                     final Handler handler = new Handler(activity.getMainLooper());
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (ActivatorTargetHelpsActivity.activity != null) {
-                                //Log.d("ActivateProfileListAdapter.showTargetHelps", "finish activity");
+                    handler.postDelayed(() -> {
+//                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=ActivateProfileListAdapter.showTargetHelps (1)");
+
+                        if (ActivatorTargetHelpsActivity.activity != null) {
+                            //Log.d("ActivateProfileListAdapter.showTargetHelps", "finish activity");
+                            try {
                                 ActivatorTargetHelpsActivity.activity.finish();
-                                ActivatorTargetHelpsActivity.activity = null;
-                                ActivatorTargetHelpsActivity.activatorActivity = null;
+                            } catch (Exception e) {
+                                PPApplication.recordException(e);
                             }
+                            ActivatorTargetHelpsActivity.activity = null;
+                            //ActivatorTargetHelpsActivity.activatorActivity = null;
                         }
                     }, 500);
                 }
@@ -301,15 +342,18 @@ class ActivateProfileListAdapter extends BaseAdapter
                 public void onSequenceCanceled(TapTarget lastTarget) {
                     //targetHelpsSequenceStarted = false;
                     final Handler handler = new Handler(activity.getMainLooper());
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (ActivatorTargetHelpsActivity.activity != null) {
-                                //Log.d("ActivateProfileListAdapter.showTargetHelps", "finish activity");
+                    handler.postDelayed(() -> {
+//                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=ActivateProfileListAdapter.showTargetHelps (2)");
+
+                        if (ActivatorTargetHelpsActivity.activity != null) {
+                            //Log.d("ActivateProfileListAdapter.showTargetHelps", "finish activity");
+                            try {
                                 ActivatorTargetHelpsActivity.activity.finish();
-                                ActivatorTargetHelpsActivity.activity = null;
-                                ActivatorTargetHelpsActivity.activatorActivity = null;
+                            } catch (Exception e) {
+                                PPApplication.recordException(e);
                             }
+                            ActivatorTargetHelpsActivity.activity = null;
+                            //ActivatorTargetHelpsActivity.activatorActivity = null;
                         }
                     }, 500);
                 }
@@ -321,15 +365,18 @@ class ActivateProfileListAdapter extends BaseAdapter
         }
         else {
             final Handler handler = new Handler(activity.getMainLooper());
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (ActivatorTargetHelpsActivity.activity != null) {
-                        //Log.d("ActivateProfileListAdapter.showTargetHelps", "finish activity");
+            handler.postDelayed(() -> {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=ActivateProfileListAdapter.showTargetHelps (3)");
+
+                if (ActivatorTargetHelpsActivity.activity != null) {
+                    //Log.d("ActivateProfileListAdapter.showTargetHelps", "finish activity");
+                    try {
                         ActivatorTargetHelpsActivity.activity.finish();
-                        ActivatorTargetHelpsActivity.activity = null;
-                        ActivatorTargetHelpsActivity.activatorActivity = null;
+                    } catch (Exception e) {
+                        PPApplication.recordException(e);
                     }
+                    ActivatorTargetHelpsActivity.activity = null;
+                    //ActivatorTargetHelpsActivity.activatorActivity = null;
                 }
             }, 500);
         }

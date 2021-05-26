@@ -3,31 +3,47 @@ package sk.henrichg.phoneprofilesplus;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Handler;
 
 public class LocaleChangedReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        CallsCounter.logCounter(context, "LocaleChangedReceiver.onReceive", "LocaleChangedReceiver_onReceive");
+//        PPApplication.logE("[IN_BROADCAST] LocaleChangedReceiver.onReceive", "xxx");
+        //CallsCounter.logCounter(context, "LocaleChangedReceiver.onReceive", "LocaleChangedReceiver_onReceive");
 
         if ((intent != null) && (intent.getAction() != null) && intent.getAction().equals(Intent.ACTION_LOCALE_CHANGED)) {
-            PPApplication.logE("##### LocaleChangedReceiver.onReceive", "xxx");
 
-            final Context appContext = context.getApplicationContext();
-            PPApplication.startHandlerThread("LocaleChangedReceiver.onReceive");
-            final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (ApplicationPreferences.applicationLanguage(appContext).equals("system")) {
-                        if (PhoneProfilesService.instance != null) {
-                            DataWrapper dataWrapper = new DataWrapper(appContext, false, 0);
-                            PhoneProfilesService.instance.showProfileNotification(dataWrapper);
-                        }
+            //final Context appContext = context.getApplicationContext();
+
+            if (PPApplication.getApplicationStarted(false)) {
+
+                PPApplication.collator = PPApplication.getCollator();
+                //if (ApplicationPreferences.applicationLanguage(appContext).equals("system")) {
+                //PPApplication.showProfileNotification(/*true*/);
+                if (PhoneProfilesService.getInstance() != null)
+                    PhoneProfilesService.getInstance().showProfileNotification(false, true, false);
+                //}
+
+/*
+                PPApplication.startHandlerThreadBroadcast();
+                final Handler handler = new Handler(PPApplication.handlerThreadBroadcast.getLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=LocaleChangedReceiver.onReceive");
+
+                        PPApplication.collator = PPApplication.getCollator();
+                        //if (ApplicationPreferences.applicationLanguage(appContext).equals("system")) {
+                            //PPApplication.showProfileNotification();
+                        if (PhoneProfilesService.getInstance() != null)
+                            PhoneProfilesService.getInstance().showProfileNotification(false);
+                        //}
+
+                        //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=LocaleChangedReceiver.onReceive");
                     }
-                }
-            });
+                });
+*/
+            }
         }
     }
 

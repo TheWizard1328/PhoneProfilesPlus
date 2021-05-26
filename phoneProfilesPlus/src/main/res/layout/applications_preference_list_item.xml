@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                xmlns:tools="http://schemas.android.com/tools"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="3dp"
-                android:clickable="true"
-                android:background="?attr/selectableItemBackground"
-                android:focusable="true">
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/applications_pref_dlg_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="3dp"
+    android:clickable="true"
+    android:background="?attr/selectableItemBackground"
+    android:focusable="true">
 
     <LinearLayout
         android:id="@+id/applications_pref_dlg_item_buttons_root"
@@ -16,21 +17,19 @@
         android:layout_alignParentEnd="true"
         android:orientation="horizontal" >
 
-        <ImageView
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/applications_pref_dlg_item_edit_menu"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:padding="10dp"
-            android:scaleType="center"
-            android:clickable="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="@string/preference_item_edit_menu"
-            android:src="?attr/editItemMenuIcon"
-            android:focusable="true"/>
+            android:src="?attr/editItemMenuIcon"/>
 
     </LinearLayout>
 
     <RelativeLayout
+        android:id="@+id/applications_pref_dlg_item_reLa1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_toStartOf="@id/applications_pref_dlg_item_buttons_root"
@@ -44,13 +43,13 @@
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:contentDescription="@string/preference_item_drag_handle"
-            android:paddingLeft="5dp"
-            android:paddingRight="5dp"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
             android:layout_marginStart="3dp"
             android:scaleType="center"
             android:src="?attr/dragHandleIcon"
             android:clickable="true"
-            android:focusable="true" />
+            android:focusable="true"/>
 
         <ImageView
             android:id="@+id/applications_pref_dlg_item_icon"
@@ -72,19 +71,21 @@
             android:layout_marginStart="10dp"
             android:layout_toEndOf="@id/applications_pref_dlg_item_icon"
             android:text="@string/empty_string"
-            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
             android:maxLines="1"/>
 
         <TextView
             android:id="@+id/applications_pref_dlg_item_app_type"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
+            android:layout_marginStart="10dp"
             android:layout_toEndOf="@id/applications_pref_dlg_item_icon"
             android:layout_below="@id/applications_pref_dlg_item_app_name"
             android:text="@string/empty_string"
-            android:textAppearance="?android:attr/textAppearanceSmall"
-            android:textStyle="italic"
+            android:textSize="13sp"
+            android:ellipsize="end"
             android:maxLines="1"/>
 
         <TextView
@@ -95,7 +96,8 @@
             android:layout_toEndOf="@id/applications_pref_dlg_item_icon"
             android:layout_below="@id/applications_pref_dlg_item_app_type"
             android:text="Startup delay: 00:00:00"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textSize="13sp"
+            android:ellipsize="end"
             android:maxLines="1"
             tools:ignore="HardcodedText"/>
 

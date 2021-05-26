@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mobile_cells_pref_dlg_item_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:paddingTop="5dp"
@@ -13,21 +14,19 @@
         android:layout_alignParentEnd="true"
         android:orientation="horizontal" >
 
-        <ImageView
+        <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/mobile_cells_pref_dlg_item_edit_menu"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:padding="10dp"
-            android:scaleType="center"
-            android:clickable="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="@string/preference_item_edit_menu"
-            android:src="?attr/editItemMenuIcon"
-            android:focusable="true"/>
+            android:src="?attr/editItemMenuIcon"/>
 
     </LinearLayout>
 
     <RelativeLayout
+        android:id="@+id/mobile_cells_pref_dlg_item_reLa1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_toStartOf="@id/mobile_cells_pref_dlg_item_buttons_root"
@@ -44,6 +43,7 @@
             android:focusable="false" />
 
         <LinearLayout
+            android:id="@+id/mobile_cells_pref_dlg_item_liLa1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"

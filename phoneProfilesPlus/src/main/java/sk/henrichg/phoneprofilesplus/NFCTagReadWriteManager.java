@@ -3,14 +3,23 @@ package sk.henrichg.phoneprofilesplus;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.nfc.FormatException;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.TagLostException;
+import android.nfc.tech.IsoDep;
+import android.nfc.tech.MifareClassic;
+import android.nfc.tech.MifareUltralight;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
+import android.nfc.tech.NfcA;
+import android.nfc.tech.NfcB;
+import android.nfc.tech.NfcBarcode;
+import android.nfc.tech.NfcF;
+import android.nfc.tech.NfcV;
 import android.os.Parcelable;
 
 import java.io.IOException;
@@ -22,7 +31,9 @@ class NFCTagReadWriteManager {
     private final Activity activity;
     private PendingIntent pendingIntent;
 
-    boolean tagReaded = false;
+    //boolean uidRead = false;
+
+    boolean tagRead = false;
 
     boolean tagIsWritable;  // is tag writable?
 
@@ -32,6 +43,21 @@ class NFCTagReadWriteManager {
 
     private String writeText = null;
 
+    // list of NFC technologies detected:
+    private final String[][] techList = new String[][] {
+            new String[] {
+                    NfcA.class.getName(),
+                    NfcB.class.getName(),
+                    NfcF.class.getName(),
+                    NfcV.class.getName(),
+                    IsoDep.class.getName(),
+                    MifareClassic.class.getName(),
+                    MifareUltralight.class.getName(),
+                    NfcBarcode.class.getName(),
+                    Ndef.class.getName(),
+                    NdefFormatable.class.getName()
+            }
+    };
 
     NFCTagReadWriteManager(Activity activity) {
         this.activity = activity;
@@ -87,7 +113,11 @@ class NFCTagReadWriteManager {
      */
     void onActivityResume() {
         if (nfcAdapter != null) {
-            nfcAdapter.enableForegroundDispatch(activity, pendingIntent, null, null);
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(NfcAdapter.ACTION_TAG_DISCOVERED);
+            filter.addAction(NfcAdapter.ACTION_NDEF_DISCOVERED);
+            filter.addAction(NfcAdapter.ACTION_TECH_DISCOVERED);
+            nfcAdapter.enableForegroundDispatch(activity, pendingIntent, new IntentFilter[]{filter}, techList);
             //if (writeText == null)
             readTagFromIntent(activity.getIntent());
         }
@@ -134,8 +164,15 @@ class NFCTagReadWriteManager {
     private void readTagFromIntent(Intent intent) {
         if (intent != null){
             String action = intent.getAction();
+
+            /*if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)) {
+                uidRead = true;
+
+                String uid = ByteArrayToHexString(intent.getByteArrayExtra(NfcAdapter.EXTRA_ID));
+                onTagReadListener.onUidRead(uid);
+            }*/
             if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
-                tagReaded = true;
+                tagRead = true;
 
                 // get NDEF tag details
                 Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
@@ -145,9 +182,9 @@ class NFCTagReadWriteManager {
                     tagIsWritable = ndefTag.isWritable();   // is tag writable?
                     //String tagType = ndefTag.getType();            // tag type
 
-                    Parcelable[] rawMsgs = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
-                    if (rawMsgs != null) {
-                        NdefRecord[] records = ((NdefMessage) rawMsgs[0]).getRecords();
+                    Parcelable[] rawMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+                    if (rawMessages != null) {
+                        NdefRecord[] records = ((NdefMessage) rawMessages[0]).getRecords();
                         String text = ndefRecordToString(records[0]);
                         onTagReadListener.onTagRead(text);
                     }
@@ -155,6 +192,24 @@ class NFCTagReadWriteManager {
             }
         }
     }
+
+    /*
+    private String ByteArrayToHexString(byte [] inArray) {
+        int i, j, in;
+        String [] hex = {"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"};
+        StringBuilder out= new StringBuilder();
+
+        for(j = 0 ; j < inArray.length ; ++j)
+        {
+            in = (int) inArray[j] & 0xff;
+            i = (in >> 4) & 0x0f;
+            out.append(hex[i]);
+            i = in & 0x0f;
+            out.append(hex[i]);
+        }
+        return out.toString();
+    }
+    */
 
     private String ndefRecordToString(NdefRecord record) {
         byte[] payload = record.getPayload();
@@ -226,7 +281,8 @@ class NFCTagReadWriteManager {
     }
 
     interface TagReadListener {
-        void onTagRead(String tagRead);
+        //void onUidRead(String uid);
+        void onTagRead(String tagData);
     }
 
     interface TagWriteListener {

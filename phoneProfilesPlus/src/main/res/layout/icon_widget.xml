@@ -1,21 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/widget_icon_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center" >
+    android:gravity="center"
+    android:background="#40000000"
+    tools:ignore="Overdraw">
 
     <ImageView
         android:id="@+id/widget_icon_background"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:scaleType="fitXY"
-        android:src="@drawable/rounded_widget_background"
+        android:src="@drawable/rounded_widget_background_5"
+        android:visibility="gone"
         android:contentDescription="@string/empty_string" />
 
-    <RelativeLayout android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center" >
+    <RelativeLayout
+        android:id="@+id/icon_widget_relLa1"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="@drawable/widget_ripple_background" >
 
         <ImageView
             android:id="@+id/icon_widget_icon"
@@ -24,11 +33,23 @@
             android:layout_centerHorizontal="true"
             android:layout_alignParentTop="true"
             android:adjustViewBounds="true"
-            android:scaleType="@integer/profilePrefIndicatorScaleType"
+            android:scaleType="fitCenter"
             android:src="@drawable/ic_profile_default"
             android:contentDescription="@string/profile_preferences_profileIcon"/>
 
         <TextView
+            android:id="@+id/icon_widget_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_below="@id/icon_widget_icon"
+            android:text="@string/profile_name_default"
+            android:textColor="#ffffffff"
+            android:textSize="13sp"
+            android:gravity="center_horizontal"
+            android:maxLines="2"/>
+
+        <!--<TextView
             android:id="@+id/icon_widget_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -41,11 +62,28 @@
             android:text="@string/profile_name_default"
             android:textColor="#ffffffff"
             android:textSize="13sp"
-            android:fontFamily="sans-serif-condensed"
             android:gravity="center_horizontal"
-            android:maxLines="2"/>
+            android:maxLines="2"/>-->
 
     </RelativeLayout>
+
+    <ImageView
+        android:id="@+id/widget_icon_not_rounded_border"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/not_rounded_widget_border"
+        android:visibility="gone"
+        android:contentDescription="@string/empty_string" />
+
+    <ImageView
+        android:id="@+id/widget_icon_rounded_border"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/rounded_widget_border_5"
+        android:visibility="gone"
+        android:contentDescription="@string/empty_string" />
 
 </FrameLayout>
 

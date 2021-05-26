@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/about_application_application_scroll_view"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:fitsSystemWindows="true" >
+    android:fitsSystemWindows="false" >
 
     <LinearLayout
+        android:id="@+id/about_application_application_root"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -15,15 +17,13 @@
 
         <ImageView
             android:id="@+id/about_application_application_icon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
             android:layout_gravity="center_horizontal"
             android:adjustViewBounds="true"
             android:contentDescription="@string/about_application_application_icon"
-            android:maxHeight="60dp"
-            android:maxWidth="60dp"
-            android:scaleType="centerCrop"
-            android:src="@mipmap/ic_launcher"/>
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_launcher"/>
 
         <TextView
             android:id="@+id/about_application_application_name"
@@ -31,7 +31,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="15dp"
-            android:text="@string/app_name"
+            android:text="@string/ppp_app_name"
             android:textSize="17sp"
             android:textStyle="bold"/>
         <TextView
@@ -39,18 +39,38 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="@string/app_name"
+            android:gravity="center_horizontal"
+            android:text="@string/ppp_app_name"
             android:textSize="15sp"/>
 
+<!--
         <TextView
             android:id="@+id/about_application_rate_application"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
+            android:gravity="center_horizontal"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
             android:layout_marginTop="15dp"
-            android:text="@string/about_application_rate_in_gplay"
+            android:text="@string/about_application_rate_in_googlePlay"
             android:textSize="15sp"
             android:textStyle="bold"/>
+-->
+
+        <Button
+            android:id="@+id/about_application_donate_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="25dp"
+            android:textColor="@color/action_button_text_color"
+            android:background="?attr/buttonBackground"
+            android:minHeight="40dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/about_application_donate_button"
+            style="?android:attr/borderlessButtonStyle" />
 
         <TextView
             android:id="@+id/about_application_author"
@@ -58,16 +78,19 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="25dp"
             android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
             android:text="@string/about_application_author"
             android:textSize="15sp"/>
 
         <TextView
-            android:id="@+id/about_application_email"
+            android:id="@+id/about_application_support"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:layout_marginStart="10dp"
-            android:text="@string/about_application_email"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="10dp"
+            android:text="@string/about_application_support"
             android:textSize="15sp"/>
 
         <TextView
@@ -76,15 +99,37 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="10dp"
             android:text="@string/about_application_privacy_policy"
+            android:textSize="15sp"/>
+
+        <TextView
+            android:id="@+id/about_application_translations_thanks"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:text="@string/about_application_help_me_with_translation"
+            android:textSize="15sp"
+            android:textStyle="bold"/>
+        <TextView
+            android:id="@+id/about_application_translations"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:text="@string/about_application_translations"
             android:textSize="15sp"/>
 
         <TextView
             android:id="@+id/about_application_releases"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
             android:text="@string/about_application_releases"
             android:textSize="15sp"/>
 
@@ -94,6 +139,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
             android:text="@string/about_application_source_code"
             android:textSize="15sp"/>
 
@@ -103,25 +149,31 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
             android:text="@string/about_application_extender_source_code"
             android:textSize="15sp"/>
 
         <TextView
-            android:id="@+id/about_application_translations"
+            android:id="@+id/about_application_xda_developers_community"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:layout_marginStart="10dp"
-            android:text="@string/about_application_transaltions"
+            android:layout_marginEnd="10dp"
+            android:text="@string/about_application_xda_developers_community"
             android:textSize="15sp"/>
 
-        <Button
-            android:id="@+id/about_application_donate_button"
+        <!--
+        <TextView
+            android:id="@+id/about_application_google_plus_community"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="20dp"
-            android:text="@string/about_application_donate_button"/>
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:text="@string/about_application_google_plus_community"
+            android:textSize="15sp"/>
+        -->
 
     </LinearLayout>
 

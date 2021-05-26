@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:key="categoryEditor"
+    app:title="@string/phone_profiles_pref_category_editor">
+
+    <SwitchPreferenceCompat
+        app:key="applicationEditorPrefIndicator"
+        app:title="@string/phone_profiles_pref_applicationPrefIndicator"
+        app:summary="@string/phone_profiles_pref_applicationPrefIndicator_summary"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    <SwitchPreferenceCompat
+        app:key="applicationEditorHideHeaderOrBottomBar"
+        app:title="@string/phone_profiles_pref_applicationHideHeaderOrBottomBar"
+        app:summary="@string/phone_profiles_pref_applicationHideHeaderOrBottomBar_summary"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    <!--
+    <SwitchPreferenceCompat
+        app:key="applicationEditorHeader"
+        app:title="@string/phone_profiles_pref_applicationHeader"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    -->
+    <!--<SwitchPreferenceCompat
+        app:key="applicationEditorSaveEditorState"
+        app:title="@string/phone_profiles_pref_applicationEditorSaveEditorState"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />-->
+    <!--<SwitchPreferenceCompat
+        app:key="applicationEditorAutoCloseDrawer"
+        app:title="@string/phone_profiles_pref_applicationAutoCloseDrawer"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />-->
+    <sk.henrichg.phoneprofilesplus.BetterNumberPickerPreferenceX
+        app:key="applicationDeleteOldActivityLogs"
+        app:summary="@string/phone_profiles_pref_deleteOldActivityLogs"
+        app:title="@string/phone_profiles_pref_deleteOldActivityLogs"
+        app:defaultValue="7"
+        app:min="0"
+        app:max="30"
+        app:layout="@layout/mp_preference_material_widget" />
+    
+</androidx.preference.PreferenceScreen>

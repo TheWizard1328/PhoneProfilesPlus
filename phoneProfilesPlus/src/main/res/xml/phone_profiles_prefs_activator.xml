@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:key="categoryActivator"
+    app:title="@string/phone_profiles_pref_category_activator">
+
+    <SwitchPreferenceCompat
+        app:key="applicationEditorPrefIndicator"
+        app:title="@string/phone_profiles_pref_applicationPrefIndicator"
+        app:summary="@string/phone_profiles_pref_applicationPrefIndicator_summary"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    <!--
+    <SwitchPreferenceCompat
+        app:key="applicationActivatorHeader"
+        app:title="@string/phone_profiles_pref_applicationHeader"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    -->
+    <SwitchPreferenceCompat
+        app:key="applicationLongClickActivation"
+        app:title="@string/phone_profiles_pref_applicationLongClickActivation"
+        app:defaultValue="false"
+        app:layout="@layout/mp_preference_material_widget" />
+    <SwitchPreferenceCompat
+        app:key="applicationClose"
+        app:title="@string/phone_profiles_pref_applicationClose"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    <SwitchPreferenceCompat
+        app:key="applicationActivatorGridLayout"
+        app:title="@string/phone_profiles_pref_applicationGridLayout"
+        app:defaultValue="true"
+        app:layout="@layout/mp_preference_material_widget" />
+    <ListPreference
+        app:key="applicationActivatorNumColums"
+        app:title="@string/phone_profiles_pref_applicationActivatorNumColumns"
+        app:summary="@string/array_pref_activatorNumColumns_3"
+        app:defaultValue="3"
+        app:entries="@array/activatorNumColumnsArray"
+        app:entryValues="@array/activatorNumColumnsValues"
+        app:dependency="applicationActivatorGridLayout"
+        app:layout="@layout/mp_preference_material_widget" />
+
+</androidx.preference.PreferenceScreen>

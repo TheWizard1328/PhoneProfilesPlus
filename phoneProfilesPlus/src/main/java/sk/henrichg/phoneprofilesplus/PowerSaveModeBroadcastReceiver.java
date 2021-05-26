@@ -1,61 +1,88 @@
 package sk.henrichg.phoneprofilesplus;
 
-import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Handler;
 import android.os.PowerManager;
 
-import static android.content.Context.POWER_SERVICE;
-
 public class PowerSaveModeBroadcastReceiver extends BroadcastReceiver {
 
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    //@TargetApi(Build.VERSION_CODES.LOLLIPOP)
     @Override
     public void onReceive(Context context, Intent intent) {
-        PPApplication.logE("##### PowerSaveModeBroadcastReceiver.onReceive", "xxx");
+//        PPApplication.logE("[IN_BROADCAST] PowerSaveModeBroadcastReceiver.onReceive", "xxx");
 
-        CallsCounter.logCounter(context, "PowerSaveModeBroadcastReceiver.onReceive", "PowerSaveModeBroadcastReceiver_onReceive");
+        //CallsCounter.logCounter(context, "PowerSaveModeBroadcastReceiver.onReceive", "PowerSaveModeBroadcastReceiver_onReceive");
 
         final Context appContext = context.getApplicationContext();
 
-        if (!PPApplication.getApplicationStarted(appContext, true))
+        if (!PPApplication.getApplicationStarted(true))
             // application is not started
             return;
 
-        //PowerSaveModeJob.start(appContext);
+        //PPApplication.isPowerSaveMode = DataWrapper.isPowerSaveMode(appContext);
 
-        // required for reschedule jobs for power save mode
-        PPApplication.logE("[XXX] PowerSaveModeBroadcastReceiver.onReceive", "restartAllScanners");
-        PPApplication.restartAllScanners(appContext, true);
-        /*PPApplication.restartWifiScanner(appContext, true);
-        PPApplication.restartBluetoothScanner(appContext, true);
-        PPApplication.restartGeofenceScanner(appContext, true);
-        PPApplication.restartPhoneStateScanner(appContext, true);
-        PPApplication.restartOrientationScanner(appContext);*/
+        // restart scanners when any is enabled
+        // required for reschedule workers for power save mode
+        boolean restart = false;
+        if (ApplicationPreferences.applicationEventBackgroundScanningEnableScanning)
+            restart = true;
+        else
+        if (ApplicationPreferences.applicationEventLocationEnableScanning)
+            restart = true;
+        else
+        if (ApplicationPreferences.applicationEventWifiEnableScanning)
+            restart = true;
+        else
+        if (ApplicationPreferences.applicationEventBluetoothEnableScanning)
+            restart = true;
+        else
+        if (ApplicationPreferences.applicationEventMobileCellEnableScanning)
+            restart = true;
+        else
+        if (ApplicationPreferences.applicationEventOrientationEnableScanning)
+            restart = true;
+        if (restart) {
+            //PPApplication.logE("[XXX] PowerSaveModeBroadcastReceiver.onReceive", "restartAllScanners");
+            //PPApplication.logE("[RJS] PowerSaveModeBroadcastReceiver.onReceive", "restart all scanners");
+            // for screenOn=true -> used only for Location scanner - start scan with GPS On
+            PPApplication.restartAllScanners(appContext, true);
+        }
 
-        PPApplication.startHandlerThread("PowerSaveModeBroadcastReceiver.onReceive");
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                PowerManager powerManager = (PowerManager) appContext.getSystemService(POWER_SERVICE);
+        if (Event.getGlobalEventsRunning()) {
+            PPApplication.startHandlerThreadBroadcast(/*"PowerSaveModeBroadcastReceiver.onReceive"*/);
+            final Handler handler = new Handler(PPApplication.handlerThreadBroadcast.getLooper());
+            handler.post(() -> {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=PowerSaveModeBroadcastReceiver.onReceive");
+
+                PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
                 PowerManager.WakeLock wakeLock = null;
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PowerSaveModeBroadcastReceiver.onReceive");
-                    wakeLock.acquire(10 * 60 * 1000);
+                try {
+                    if (powerManager != null) {
+                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":PowerSaveModeBroadcastReceiver_onReceive");
+                        wakeLock.acquire(10 * 60 * 1000);
+                    }
+
+                    // start events handler
+//                        PPApplication.logE("[EVENTS_HANDLER_CALL] PowerSaveModeBroadcastReceiver.onReceive", "sensorType=SENSOR_TYPE_POWER_SAVE_MODE");
+                    EventsHandler eventsHandler = new EventsHandler(appContext);
+                    eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_POWER_SAVE_MODE);
+
+                    //PPApplication.logE("****** EventsHandler.handleEvents", "END run - from=PowerSaveModeBroadcastReceiver.onReceive");
+                } catch (Exception e) {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                    PPApplication.recordException(e);
+                } finally {
+                    if ((wakeLock != null) && wakeLock.isHeld()) {
+                        try {
+                            wakeLock.release();
+                        } catch (Exception ignored) {
+                        }
+                    }
                 }
-
-                // start events handler
-                EventsHandler eventsHandler = new EventsHandler(appContext);
-                eventsHandler.handleEvents(EventsHandler.SENSOR_TYPE_POWER_SAVE_MODE/*, false*/);
-
-                if ((wakeLock != null) && wakeLock.isHeld())
-                    wakeLock.release();
-            }
-        });
+            });
+        }
 
     }
 }
