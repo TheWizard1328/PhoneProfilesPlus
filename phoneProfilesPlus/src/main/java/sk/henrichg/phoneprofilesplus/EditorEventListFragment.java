@@ -183,7 +183,7 @@ public class EditorEventListFragment extends Fragment
         //noinspection ConstantConditions
         activityDataWrapper = new DataWrapper(getActivity().getApplicationContext(), false, 0, false);
 
-        getActivity().getIntent();
+        //getActivity().getIntent();
 
         setHasOptionsMenu(true);
 
@@ -206,6 +206,7 @@ public class EditorEventListFragment extends Fragment
             showTargetHelps();
     }
 
+    @SuppressLint("AlwaysShowAction")
     private void doOnViewCreated(View view, boolean fromOnViewCreated)
     {
         profilePrefIndicatorImageView = view.findViewById(R.id.activated_profile_pref_indicator);
@@ -473,7 +474,7 @@ public class EditorEventListFragment extends Fragment
         Handler progressBarHandler;
         Runnable progressBarRunnable;
 
-        private LoadEventListAsyncTask (EditorEventListFragment fragment, int filterType, int orderType) {
+        public LoadEventListAsyncTask (EditorEventListFragment fragment, int filterType, int orderType) {
             fragmentWeakRef = new WeakReference<>(fragment);
             _filterType = filterType;
             _orderType = orderType;
@@ -672,7 +673,7 @@ public class EditorEventListFragment extends Fragment
         onStartEventPreferencesCallback.onStartEventPreferences(event, editMode, predefinedEventIndex);
     }
 
-    boolean runStopEvent(final Event event) {
+    boolean runStopEvent(Event event) {
         if (Event.getGlobalEventsRunning()) {
             // events are not globally stopped
 
@@ -682,33 +683,40 @@ public class EditorEventListFragment extends Fragment
                     // pause event
                     //IgnoreBatteryOptimizationNotification.showNotification(activityDataWrapper.context);
 
-                    final DataWrapper _dataWrapper = activityDataWrapper;
                     PPApplication.startHandlerThread();
-                    final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-                    handler.post(() -> {
+                    final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+                    __handler.post(new RunStopEventRunnable(activityDataWrapper, event) {
+                        @Override
+                        public void run() {
 //                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=EditorEventListFragment.runStopEvent.1");
 
-                        PowerManager powerManager = (PowerManager) _dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-                        PowerManager.WakeLock wakeLock = null;
-                        try {
-                            if (powerManager != null) {
-                                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":EditorEventListFragment_runStopEvent_1");
-                                wakeLock.acquire(10 * 60 * 1000);
-                            }
+                            DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                            Event event = eventWeakRef.get();
 
-                            synchronized (PPApplication.eventsHandlerMutex) {
-                                event.pauseEvent(_dataWrapper, false, false,
-                                        false, true, null, false, false, true);
-                            }
-
-                        } catch (Exception e) {
-//                                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                            PPApplication.recordException(e);
-                        } finally {
-                            if ((wakeLock != null) && wakeLock.isHeld()) {
+                            if ((dataWrapper != null) && (event != null)) {
+                                PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+                                PowerManager.WakeLock wakeLock = null;
                                 try {
-                                    wakeLock.release();
-                                } catch (Exception ignored) {
+                                    if (powerManager != null) {
+                                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":EditorEventListFragment_runStopEvent_1");
+                                        wakeLock.acquire(10 * 60 * 1000);
+                                    }
+
+                                    synchronized (PPApplication.eventsHandlerMutex) {
+                                        event.pauseEvent(dataWrapper, false, false,
+                                                false, true, null, false, false, true);
+                                    }
+
+                                } catch (Exception e) {
+//                                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                                    PPApplication.recordException(e);
+                                } finally {
+                                    if ((wakeLock != null) && wakeLock.isHeld()) {
+                                        try {
+                                            wakeLock.release();
+                                        } catch (Exception ignored) {
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -722,33 +730,40 @@ public class EditorEventListFragment extends Fragment
             } else {
                 // stop event
 
-                final DataWrapper _dataWrapper = activityDataWrapper;
                 PPApplication.startHandlerThread();
-                final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-                handler.post(() -> {
+                final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+                __handler.post(new RunStopEventRunnable(activityDataWrapper, event) {
+                    @Override
+                    public void run() {
 //                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=EditorEventListFragment.runStopEvent.2");
 
-                    PowerManager powerManager = (PowerManager) _dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-                    PowerManager.WakeLock wakeLock = null;
-                    try {
-                        if (powerManager != null) {
-                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":EditorEventListFragment_runStopEvent_2");
-                            wakeLock.acquire(10 * 60 * 1000);
-                        }
+                        DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                        Event event = eventWeakRef.get();
 
-                        synchronized (PPApplication.eventsHandlerMutex) {
-                            event.stopEvent(_dataWrapper, false, false,
-                                    true, true, true); // activate return profile
-                        }
-
-                    } catch (Exception e) {
-//                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                        PPApplication.recordException(e);
-                    } finally {
-                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                        if ((dataWrapper != null) && (event != null)) {
+                            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
+                            PowerManager.WakeLock wakeLock = null;
                             try {
-                                wakeLock.release();
-                            } catch (Exception ignored) {
+                                if (powerManager != null) {
+                                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":EditorEventListFragment_runStopEvent_2");
+                                    wakeLock.acquire(10 * 60 * 1000);
+                                }
+
+                                synchronized (PPApplication.eventsHandlerMutex) {
+                                    event.stopEvent(dataWrapper, false, false,
+                                            true, true, true); // activate return profile
+                                }
+
+                            } catch (Exception e) {
+//                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                                PPApplication.recordException(e);
+                            } finally {
+                                if ((wakeLock != null) && wakeLock.isHeld()) {
+                                    try {
+                                        wakeLock.release();
+                                    } catch (Exception ignored) {
+                                    }
+                                }
                             }
                         }
                     }
@@ -1099,54 +1114,7 @@ public class EditorEventListFragment extends Fragment
         if (!newDisplayedText.equals(oldDisplayedText))
             activatedProfileHeader.setVisibility(VISIBLE);
 
-        new AsyncTask<Void, Integer, Void>() {
-            boolean redTextVisible = false;
-            DataWrapper _dataWrapper;
-
-            @Override
-            protected void onPreExecute()
-            {
-                super.onPreExecute();
-
-                if (getActivity() != null) {
-                    _dataWrapper = new DataWrapper(getActivity().getApplicationContext(), false, 0, false);
-                    _dataWrapper.copyEventList(activityDataWrapper);
-                }
-            }
-
-            @Override
-            protected Void doInBackground(Void... params) {
-                if (_dataWrapper != null) {
-                    for (Event event : _dataWrapper.eventList) {
-                        if (EventsPrefsFragment.isRedTextNotificationRequired(event, _dataWrapper.context))
-                            redTextVisible = true;
-                    }
-                }
-                return null;
-            }
-
-            @SuppressLint("SetTextI18n")
-            @Override
-            protected void onPostExecute(Void result)
-            {
-                super.onPostExecute(result);
-
-                 if ((getActivity() != null) && (!getActivity().isFinishing())) {
-                    try {
-                        //if (activatedProfileHeader.isVisibleToUser()) {
-                            TextView redText = activatedProfileHeader.findViewById(R.id.activated_profile_red_text);
-                            if (redTextVisible)
-                                redText.setVisibility(View.VISIBLE);
-                            else
-                                redText.setVisibility(GONE);
-                        //}
-                    } catch (Exception e) {
-                        PPApplication.recordException(e);
-                    }
-                }
-            }
-
-        }.execute();
+        new UpdateHeaderAsyncTask(this).execute();
     }
 
     void updateListView(Event event, boolean newEvent, boolean refreshIcons, boolean setPosition/*, long loadEventId*/)
@@ -1417,7 +1385,12 @@ public class EditorEventListFragment extends Fragment
 
         //PPApplication.logE("EditorEventListFragment.refreshGUI", "refresh="+refresh);
 
-        new AsyncTask<Void, Integer, Void>() {
+        EditorEventListFragment.RefreshGUIAsyncTask asyncTask =
+                new EditorEventListFragment.RefreshGUIAsyncTask(
+                        refreshIcons, setPosition, eventId, this, activityDataWrapper);
+        asyncTask.execute();
+
+/*        new AsyncTask<Void, Integer, Void>() {
 
             Profile profileFromDB;
             Profile profileFromDataWrapper;
@@ -1443,28 +1416,26 @@ public class EditorEventListFragment extends Fragment
                                 ApplicationPreferences.applicationEditorPrefIndicator, false);
                     }
 
-                    /*
-                    String pName;
-                    if (profileFromDB != null) {
-                        pName = DataWrapper.getProfileNameWithManualIndicatorAsString(profileFromDB, true, "", true, false, false, activityDataWrapper);
-                    } else
-                        pName = activityDataWrapper.context.getString(R.string.profiles_header_profile_name_no_activated);
-                    //PPApplication.logE("EditorEventListFragment.refreshGUI", "pName="+pName);
-
-                    if (!refresh) {
-                        String pNameHeader = PPApplication.prefActivityProfileName3;
-                        //PPApplication.logE("EditorEventListFragment.refreshGUI", "pNameHeader="+pNameHeader);
-
-                        if ((!pNameHeader.isEmpty()) && pName.equals(pNameHeader)) {
-                            //PPApplication.logE("EditorEventListFragment.refreshGUI", "activated profile NOT changed");
-                            doNotRefresh = true;
-                            return null;
-                        }
-                    }
-
-                    PPApplication.setActivityProfileName(activityDataWrapper.context, 2, pName);
-                    PPApplication.setActivityProfileName(activityDataWrapper.context, 3, pName);
-                    */
+//                    String pName;
+//                    if (profileFromDB != null) {
+//                        pName = DataWrapper.getProfileNameWithManualIndicatorAsString(profileFromDB, true, "", true, false, false, activityDataWrapper);
+//                    } else
+//                        pName = activityDataWrapper.context.getString(R.string.profiles_header_profile_name_no_activated);
+//                    //PPApplication.logE("EditorEventListFragment.refreshGUI", "pName="+pName);
+//
+//                    if (!refresh) {
+//                        String pNameHeader = PPApplication.prefActivityProfileName3;
+//                        //PPApplication.logE("EditorEventListFragment.refreshGUI", "pNameHeader="+pNameHeader);
+//
+//                        if ((!pNameHeader.isEmpty()) && pName.equals(pNameHeader)) {
+//                            //PPApplication.logE("EditorEventListFragment.refreshGUI", "activated profile NOT changed");
+//                            doNotRefresh = true;
+//                            return null;
+//                        }
+//                    }
+//
+//                    PPApplication.setActivityProfileName(activityDataWrapper.context, 2, pName);
+//                    PPApplication.setActivityProfileName(activityDataWrapper.context, 3, pName);
 
                     synchronized (activityDataWrapper.eventList) {
                         if (!activityDataWrapper.eventListFilled) {
@@ -1516,12 +1487,12 @@ public class EditorEventListFragment extends Fragment
                             //PPApplication.logE("EditorEventListFragment.refreshGUI", "profile not activated");
                             updateHeader(null);
                         }
-                        updateListView(null, false, _refreshIcons, setPosition/*, eventId*/);
+                        updateListView(null, false, _refreshIcons, setPosition);
                     }
                 }
             }
 
-        }.execute();
+        }.execute();*/
 
         /*Profile profileFromDB = DatabaseHandler.getInstance(activityDataWrapper.context).getActivatedProfile();
         activityDataWrapper.getEventTimelineList(true);
@@ -1931,6 +1902,11 @@ public class EditorEventListFragment extends Fragment
                     //eventListAdapter.notifyDataSetChanged();
                     EventsPrefsActivity.saveUpdateOfPreferences(event, activityDataWrapper, event.getStatus());
                     ((EditorProfilesActivity) getActivity()).redrawEventListFragment(event, EDIT_MODE_EDIT);
+
+                    PPApplication.showToast(activityDataWrapper.context.getApplicationContext(),
+                            getResources().getString(R.string.ignore_manual_activation_not_ignore_toast),
+                            Toast.LENGTH_LONG);
+
                     return true;
                 }
                 else
@@ -1941,6 +1917,11 @@ public class EditorEventListFragment extends Fragment
                     //eventListAdapter.notifyDataSetChanged();
                     EventsPrefsActivity.saveUpdateOfPreferences(event, activityDataWrapper, event.getStatus());
                     ((EditorProfilesActivity) getActivity()).redrawEventListFragment(event, EDIT_MODE_EDIT);
+
+                    PPApplication.showToast(activityDataWrapper.context.getApplicationContext(),
+                            getResources().getString(R.string.ignore_manual_activation_ignore_toast),
+                            Toast.LENGTH_LONG);
+
                     return true;
                 }
                 else
@@ -1951,6 +1932,11 @@ public class EditorEventListFragment extends Fragment
                     //eventListAdapter.notifyDataSetChanged();
                     EventsPrefsActivity.saveUpdateOfPreferences(event, activityDataWrapper, event.getStatus());
                     ((EditorProfilesActivity) getActivity()).redrawEventListFragment(event, EDIT_MODE_EDIT);
+
+                    PPApplication.showToast(activityDataWrapper.context.getApplicationContext(),
+                            getResources().getString(R.string.ignore_manual_activation_ignore_no_pause_toast),
+                            Toast.LENGTH_LONG);
+
                     return true;
                 }
                 else {
@@ -2003,6 +1989,195 @@ public class EditorEventListFragment extends Fragment
             activatedProfileHeader.setVisibility(VISIBLE);
         if (bottomToolbar != null)
             bottomToolbar.setVisibility(VISIBLE);
+    }
+
+    private static class RefreshGUIAsyncTask extends AsyncTask<Void, Integer, Void> {
+
+        Profile profileFromDB;
+        Profile profileFromDataWrapper;
+
+        boolean doNotRefresh = false;
+
+        private final WeakReference<EditorEventListFragment> fragmentWeakRef;
+        final DataWrapper dataWrapper;
+        private boolean refreshIcons;
+        private final boolean setPosition;
+        private final long eventId;
+
+        public RefreshGUIAsyncTask(final boolean refreshIcons,
+                                   final boolean setPosition,
+                                   final long eventId,
+                                   final EditorEventListFragment fragment,
+                                   final DataWrapper dataWrapper) {
+            this.fragmentWeakRef = new WeakReference<>(fragment);
+            this.dataWrapper = dataWrapper.copyDataWrapper();
+            this.refreshIcons = refreshIcons;
+            this.setPosition = setPosition;
+            this.eventId = eventId;
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            if (fragmentWeakRef.get() != null) {
+                try {
+                    profileFromDB = DatabaseHandler.getInstance(dataWrapper.context).getActivatedProfile();
+                    dataWrapper.getEventTimelineList(true);
+
+                    if (profileFromDB != null) {
+                        profileFromDataWrapper = dataWrapper.getProfileById(profileFromDB._id, true,
+                                ApplicationPreferences.applicationEditorPrefIndicator, false);
+                    }
+
+                    /*
+                    String pName;
+                    if (profileFromDB != null) {
+                        pName = DataWrapper.getProfileNameWithManualIndicatorAsString(profileFromDB, true, "", true, false, false, activityDataWrapper);
+                    } else
+                        pName = activityDataWrapper.context.getString(R.string.profiles_header_profile_name_no_activated);
+                    //PPApplication.logE("EditorEventListFragment.refreshGUI", "pName="+pName);
+
+                    if (!refresh) {
+                        String pNameHeader = PPApplication.prefActivityProfileName3;
+                        //PPApplication.logE("EditorEventListFragment.refreshGUI", "pNameHeader="+pNameHeader);
+
+                        if ((!pNameHeader.isEmpty()) && pName.equals(pNameHeader)) {
+                            //PPApplication.logE("EditorEventListFragment.refreshGUI", "activated profile NOT changed");
+                            doNotRefresh = true;
+                            return null;
+                        }
+                    }
+
+                    PPApplication.setActivityProfileName(activityDataWrapper.context, 2, pName);
+                    PPApplication.setActivityProfileName(activityDataWrapper.context, 3, pName);
+                    */
+
+                    synchronized (dataWrapper.eventList) {
+                        if (!dataWrapper.eventListFilled) {
+                            doNotRefresh = true;
+                            return null;
+                        }
+
+                        //noinspection ForLoopReplaceableByForEach
+                        for (Iterator<Event> it = dataWrapper.eventList.iterator(); it.hasNext(); ) {
+                            Event event = it.next();
+                            int status = DatabaseHandler.getInstance(dataWrapper.context).getEventStatus(event);
+                            event.setStatus(status);
+                            event._isInDelayStart = DatabaseHandler.getInstance(dataWrapper.context).getEventInDelayStart(event);
+                            event._isInDelayEnd = DatabaseHandler.getInstance(dataWrapper.context).getEventInDelayEnd(event);
+                            DatabaseHandler.getInstance(dataWrapper.context).setEventCalendarTimes(event);
+                            DatabaseHandler.getInstance(dataWrapper.context).getSMSStartTime(event);
+                            //DatabaseHandler.getInstance(activityDataWrapper.context).getNotificationStartTime(event);
+                            DatabaseHandler.getInstance(dataWrapper.context).getNFCStartTime(event);
+                            DatabaseHandler.getInstance(dataWrapper.context).getCallStartTime(event);
+                            DatabaseHandler.getInstance(dataWrapper.context).getAlarmClockStartTime(event);
+                            DatabaseHandler.getInstance(dataWrapper.context).getDeviceBootStartTime(event);
+                        }
+                    }
+
+                    if (eventId != 0) {
+                        Event eventFromDB = DatabaseHandler.getInstance(dataWrapper.context).getEvent(eventId);
+                        dataWrapper.updateEvent(eventFromDB);
+                        refreshIcons = true;
+                    }
+                } catch (Exception e) {
+                    if ((dataWrapper != null) && (dataWrapper.context != null))
+                        PPApplication.recordException(e);
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result)
+        {
+            super.onPostExecute(result);
+
+            EditorEventListFragment fragment = fragmentWeakRef.get();
+            if (fragment != null) {
+                if ((fragment.getActivity() != null) && (!fragment.getActivity().isFinishing())) {
+                    if (!doNotRefresh) {
+                        if (profileFromDB != null) {
+                            //PPApplication.logE("EditorEventListFragment.refreshGUI", "profile activated");
+                            if (profileFromDataWrapper != null)
+                                profileFromDataWrapper._checked = true;
+                            fragment.updateHeader(profileFromDataWrapper);
+                        } else {
+                            //PPApplication.logE("EditorEventListFragment.refreshGUI", "profile not activated");
+                            fragment.updateHeader(null);
+                        }
+                        fragment.updateListView(null, false, refreshIcons, setPosition/*, eventId*/);
+                    }
+                }
+            }
+        }
+
+    }
+
+    private static class UpdateHeaderAsyncTask extends AsyncTask<Void, Integer, Void> {
+
+        boolean redTextVisible = false;
+        DataWrapper _dataWrapper;
+
+        private final WeakReference<EditorEventListFragment> fragmentWeakRef;
+
+        public UpdateHeaderAsyncTask(final EditorEventListFragment fragment) {
+            this.fragmentWeakRef = new WeakReference<>(fragment);
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            EditorEventListFragment fragment = fragmentWeakRef.get();
+            if (fragment != null) {
+                if (fragment.getActivity() != null) {
+                    _dataWrapper = new DataWrapper(fragment.getActivity().getApplicationContext(), false, 0, false);
+                    _dataWrapper.copyEventList(fragment.activityDataWrapper);
+
+                    for (Event event : _dataWrapper.eventList) {
+                        if (EventsPrefsFragment.isRedTextNotificationRequired(event, _dataWrapper.context))
+                            redTextVisible = true;
+                    }
+                }
+            }
+            return null;
+        }
+
+        @SuppressLint("SetTextI18n")
+        @Override
+        protected void onPostExecute(Void result)
+        {
+            super.onPostExecute(result);
+
+            EditorEventListFragment fragment = fragmentWeakRef.get();
+            if (fragment != null) {
+                if ((fragment.getActivity() != null) && (!fragment.getActivity().isFinishing())) {
+                    try {
+                        //if (activatedProfileHeader.isVisibleToUser()) {
+                        TextView redText = fragment.activatedProfileHeader.findViewById(R.id.activated_profile_red_text);
+                        if (redTextVisible)
+                            redText.setVisibility(View.VISIBLE);
+                        else
+                            redText.setVisibility(GONE);
+                        //}
+                    } catch (Exception e) {
+                        PPApplication.recordException(e);
+                    }
+                }
+            }
+        }
+
+    }
+
+    private static abstract class RunStopEventRunnable implements Runnable {
+
+        public final WeakReference<DataWrapper> dataWrapperWeakRef;
+        public final WeakReference<Event> eventWeakRef;
+
+        public RunStopEventRunnable(DataWrapper dataWrapper,
+                                       Event event) {
+            this.dataWrapperWeakRef = new WeakReference<>(dataWrapper);
+            this.eventWeakRef = new WeakReference<>(event);
+        }
+
     }
 
 }

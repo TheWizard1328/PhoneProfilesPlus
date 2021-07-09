@@ -304,8 +304,8 @@ public class BrightnessDialogPreferenceFragmentX extends PreferenceDialogFragmen
                             Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ, value);
                 } catch (Exception ee) {
                     PPApplication.startHandlerThread(/*"BrightnessDialogPreferenceFragmentX.setAdaptiveBrightness"*/);
-                    final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-                    handler.post(() -> {
+                    final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+                    __handler.post(() -> {
 //                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=BrightnessDialogPreferenceFragmentX.setAdaptiveBrightness");
 
                         if ((!ApplicationPreferences.applicationNeverAskForGrantRoot) &&
@@ -334,11 +334,11 @@ public class BrightnessDialogPreferenceFragmentX extends PreferenceDialogFragmen
     }
 
     private void setBrightnessFromSeekBar(int value) {
-        /*if (PPApplication.logEnabled()) {
-            PPApplication.logE("BrightnessDialogPreferenceFragmentX.setBrightnessFromSeekBar", "value=" + value);
-            PPApplication.logE("BrightnessDialogPreferenceFragmentX.setBrightnessFromSeekBar", "computed value=" +
-                    Profile.convertPercentsToBrightnessManualValue(value, context));
-        }*/
+//        if (PPApplication.logEnabled()) {
+//            PPApplication.logE("BrightnessDialogPreferenceFragmentX.setBrightnessFromSeekBar", "value=" + value);
+//            PPApplication.logE("BrightnessDialogPreferenceFragmentX.setBrightnessFromSeekBar", "computed value=" +
+//                    Profile.convertPercentsToBrightnessManualValue(value, context));
+//        }
         if (Permissions.checkScreenBrightness(context, null)) {
             if (preference.automatic == 1)
                 Settings.System.putInt(context.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);

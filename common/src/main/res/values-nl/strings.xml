@@ -823,7 +823,6 @@
     <string name="number_picker_min_max_error">Voer een getal in tussen %1$s en %2$s</string>
     <string name="email_chooser">Verstuur e-mail met</string>
     <string name="web_browser_chooser">Bekijk weblink met</string>
-    <string name="google_play_chooser">Bekijk Google Play met</string>
     <string name="preference_not_allowed_reason_not_extender_installed">PhoneProfilesPlusExtender is niet geïnstalleerd</string>
     <string name="preference_not_allowed_reason_not_enabled_accessibility_settings_for_extender">toegankelijkheidsinstellingen voor PhoneProfilesPlusExtender zijn niet ingeschakeld</string>
     <string name="event_preferences_applications_AccessibilitySettingsForExtender_summary">Sta PhoneProfilesPlusExtender toe in \"Instellingen voor toegankelijkheid\" in Systeeminstellingen voor het inschakelen van programma-parameters.</string>
@@ -1647,6 +1646,19 @@
     <string name="mobile_cells_pref_dlg_connected_cell_sim1">Verbonden cel (SIM 1):</string>
     <string name="mobile_cells_pref_dlg_connected_cell_sim2">Verbonden cel (SIM 2):</string>
     <string name="event_preferences_mobile_cells_forSimCard">Voor simkaart</string>
+    <string name="editor_activity_targetHelps_profilesBottomMenu_title">Acties andere profielen</string>
+    <string name="editor_activity_targetHelps_profilesBottomMenu_description">Klik hier om het menu te openen met acties andere profielen: \"Alle profielen verwijderen\"</string>
+    <string name="editor_activity_targetHelps_eventsBottomMenu_title">Andere event acties</string>
+    <string name="editor_activity_targetHelps_eventsBottomMenu_description">Klik hier om het menu te openen met andere event acties: \"Standaard profiel\", \"Verwijder alle evenementen\"</string>
+    <string name="profile_preferences_showInActivator_summary">Aan, als je dit profiel wilt laten zien in Activator, Lijstwidget, Samsung Edge-paneel.</string>
+    <string name="show_profile_in_activator_not_show_toast">Profiel zal niet worden weergegeven in Activator, Lijstwidget, Samsung Edge-paneel</string>
+    <string name="show_profile_in_activator_show_toast">Profiel zal worden weergegeven in Activator, Lijstwidget, Samsung Edge-paneel</string>
+    <string name="ignore_manual_activation_not_ignore_toast">Event wordt niet gestart wanneer een profiel handmatig is geactiveerd</string>
+    <string name="ignore_manual_activation_ignore_toast">Evenement zal worden gestart, maar gepauzeerd wanneer een profiel handmatig wordt geactiveerd</string>
+    <string name="ignore_manual_activation_ignore_no_pause_toast">Evenement zal worden gestart en niet gepauzeerd wanneer een profiel handmatig wordt geactiveerd</string>
+    <string name="github_assets_screenshot_text">\"Assets\" staat onder de release notes. \"Assets\" in de mobiele weergave moetbje aangeklikken.</string>
+    <string name="quick_tile_icon_label">Kies profiel</string>
+    <string name="title_activity_tile_chooser">Snelle tegel profiel kiezer</string>
     <!-- **************************************************************************************** -->
     <!-- PLEASE CHECK END OF STRING CHANGES AND TRANSLATE IT -->
     <string name="extender_accessibility_service_description">Sta PhoneProfilesPlusExtender toe voor:\n• profiel parameter \"Forceer stoppen applicaties\"\n• event parameters \"Applicatie sensor\", \"Oriëntatie sensor\", \"SMS/MMS sensor\", \"Oproepsensor\".</string>
@@ -1695,4 +1707,5 @@
     <!--    <string name="about_application_rate_in_googlePlay">Please rate this application on Google Play</string>-->
     <!--    <string name="extender_acra_notification_send_button">Send</string>-->
     <!--    <string name="extender_acra_notification_discard_button">Discard</string>-->
+    <!--    <string name="google_play_chooser">View Google Play using</string>-->
 </resources>

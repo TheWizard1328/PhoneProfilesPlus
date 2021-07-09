@@ -823,7 +823,6 @@
     <string name="number_picker_min_max_error">Будь ласка, впишіть число між %1$s та %2$s</string>
     <string name="email_chooser">Надсилати пошту за допомогою</string>
     <string name="web_browser_chooser">Перегляд веб-посилання за допомогою</string>
-    <string name="google_play_chooser">Перегляд Google Play за допомогою</string>
     <string name="preference_not_allowed_reason_not_extender_installed">не встановлено PhoneProfilesPlusExtender</string>
     <string name="preference_not_allowed_reason_not_enabled_accessibility_settings_for_extender">не увімкнено параметри спеціальних можливостей для PhoneProfilesPlusExtender</string>
     <string name="event_preferences_applications_AccessibilitySettingsForExtender_summary">Щоб увімкнути параметр \"Додатки\", дозвольте доступ службі PhoneProfilesPlusExtender у розділі \"Спец. можливості\" системних налаштувань.</string>
@@ -1648,6 +1647,19 @@
     <string name="mobile_cells_pref_dlg_connected_cell_sim1">Підключена вишка (SIM 1):</string>
     <string name="mobile_cells_pref_dlg_connected_cell_sim2">Підключена вишка (SIM 2):</string>
     <string name="event_preferences_mobile_cells_forSimCard">Для SIM-карти</string>
+    <string name="editor_activity_targetHelps_profilesBottomMenu_title">Інші дії з профілями</string>
+    <string name="editor_activity_targetHelps_profilesBottomMenu_description">Натисніть щоб відкрити меню з іншими діями над профілями: \"Видалити всі профілі\"</string>
+    <string name="editor_activity_targetHelps_eventsBottomMenu_title">Інші дії з подіями</string>
+    <string name="editor_activity_targetHelps_eventsBottomMenu_description">Натисніть щоб відкрити меню з іншими діями над подіями: \"Профіль за замовчуванням\", \"Видалити всі події\"</string>
+    <string name="profile_preferences_showInActivator_summary">Увімкніть, якщо Ви хочете бачити цей профіль в Активаторі, Списку, панелі - Samsung Edge.</string>
+    <string name="show_profile_in_activator_not_show_toast">Профіль не буде відображатися в Активаторі, Списку, панелі Samsung Edge</string>
+    <string name="show_profile_in_activator_show_toast">Профіль буде відображатися в Активаторі, Списку, панелі Samsung Edge</string>
+    <string name="ignore_manual_activation_not_ignore_toast">Подія не буде запущена при активації любого профілю вручну</string>
+    <string name="ignore_manual_activation_ignore_toast">Подію буде запущено, але призупинено, коли профіль активовано вручну</string>
+    <string name="ignore_manual_activation_ignore_no_pause_toast">Подія буде запущена, а також не призупинена, коли будь-який профіль активовано вручну</string>
+    <string name="github_assets_screenshot_text">\"Assets\" нижче приміток релізу. При перегляді мобільної версії на \"Assets\" слід натиснути.</string>
+    <string name="quick_tile_icon_label">Оберіть профіль</string>
+    <string name="title_activity_tile_chooser">Вибір профілю для швидкого налаштування</string>
     <!-- **************************************************************************************** -->
     <!-- PLEASE CHECK END OF STRING CHANGES AND TRANSLATE IT -->
     <string name="extender_accessibility_service_description">Дозволи PhoneProfilesPlusExtender до:\n• параметрів профілю \"Примусова зупинка додатків\"\n• параметрам подій \"Датчик додатків\", \"Датчик орієнтації екрану\", \"SMS/MMS датчик\", \"Датчик викликів\".</string>
@@ -1696,4 +1708,5 @@
     <!--    <string name="about_application_rate_in_googlePlay">Please rate this application on Google Play</string>-->
     <!--    <string name="extender_acra_notification_send_button">Send</string>-->
     <!--    <string name="extender_acra_notification_discard_button">Discard</string>-->
+    <!--    <string name="google_play_chooser">View Google Play using</string>-->
 </resources>

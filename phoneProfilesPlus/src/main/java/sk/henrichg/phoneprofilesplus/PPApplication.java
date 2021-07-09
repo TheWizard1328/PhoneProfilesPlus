@@ -60,6 +60,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.text.Collator;
@@ -97,6 +98,7 @@ public class PPApplication extends Application
 
     static boolean applicationFullyStarted = false;
     static boolean normalServiceStart = false;
+    static boolean showToastForProfileActivation = false;
 
     // this for display of alert dialog when works not started at start of app
     //static long startTimeOfApplicationStart = 0;
@@ -216,6 +218,7 @@ public class PPApplication extends Application
                                                 //+"|[G1_TEST]"
                                                 //+"|[BACKGROUND_ACTIVITY]"
                                                 //+"|[START_PP_SERVICE]"
+                                                //+"|[BRS]"
 
                                                 //+"|PhoneProfilesService.registerReceiverForCalendarSensor"
                                                 //+"|EventPreferencesCalendar"
@@ -270,6 +273,14 @@ public class PPApplication extends Application
                                                 //+"|MobileCellsListener"
                                                 //+"|MobileCellsPreferenceFragmentX"
                                                 //+"|EventPreferencesMobileCells"
+
+                                                //+"|EventPreferencesTime"
+
+                                                //+"|BrightnessDialogPreferenceFragmentX"
+
+                                                //+"|PPTileService"
+                                                //+"|TileChooserListFragment"
+                                                //+"|LongClickTileChooserActivity"
                                                 ;
 
     static final int ACTIVATED_PROFILES_FIFO_SIZE = 20;
@@ -400,6 +411,7 @@ public class PPApplication extends Application
     static final boolean deviceIsOnePlus = isOnePlus();
     static final boolean deviceIsOppo = isOppo();
     static final boolean deviceIsRealme = isRealme();
+    static final boolean deviceIsLenovo = isLenovo();
     static final boolean romIsMIUI = isMIUIROM();
     static final boolean romIsEMUI = isEMUIROM();
 
@@ -429,7 +441,7 @@ public class PPApplication extends Application
     static final int STARTUP_SOURCE_NOTIFICATION = 1;
     static final int STARTUP_SOURCE_WIDGET = 2;
     static final int STARTUP_SOURCE_SHORTCUT = 3;
-    static final int STARTUP_SOURCE_BOOT = 4;
+    static final int STARTUP_SOURCE_FOR_FIRST_START = 4;
     static final int STARTUP_SOURCE_ACTIVATOR = 5;
     static final int STARTUP_SOURCE_EVENT = 6;
     static final int STARTUP_SOURCE_EDITOR = 8;
@@ -438,6 +450,7 @@ public class PPApplication extends Application
     static final int STARTUP_SOURCE_LAUNCHER = 11;
     static final int STARTUP_SOURCE_EVENT_MANUAL = 12;
     static final int STARTUP_SOURCE_EXTERNAL_APP = 13;
+    static final int STARTUP_SOURCE_QUICK_TILE = 14;
 
     //static final int PREFERENCES_STARTUP_SOURCE_ACTIVITY = 1;
     //static final int PREFERENCES_STARTUP_SOURCE_FRAGMENT = 2;
@@ -848,9 +861,9 @@ public class PPApplication extends Application
         CoreConfigurationBuilder builder = new CoreConfigurationBuilder(this)
                 .setBuildConfigClass(BuildConfig.class)
                 .setReportFormat(StringFormat.KEY_VALUE_LIST);
-        /*builder.getPluginConfigurationBuilder(ToastConfigurationBuilder.class)
-                .setResText(R.string.acra_toast_text)
-                .setEnabled(true);*/
+        //builder.getPluginConfigurationBuilder(ToastConfigurationBuilder.class)
+        //        .setResText(R.string.acra_toast_text)
+        //        .setEnabled(true);
         builder.getPluginConfigurationBuilder(NotificationConfigurationBuilder.class)
                 .setResChannelName(R.string.notification_channel_crash_report)
                 .setResChannelImportance(NotificationManager.IMPORTANCE_DEFAULT)
@@ -886,6 +899,7 @@ public class PPApplication extends Application
 
         applicationFullyStarted = false;
         normalServiceStart = false;
+        showToastForProfileActivation = false;
         instance = this;
 
         PPApplication.logE("##### PPApplication.onCreate", "xxx");
@@ -1173,6 +1187,34 @@ public class PPApplication extends Application
         super.attachBaseContext(base);
         collator = getCollator();
         MultiDex.install(this);
+
+        /*
+        CoreConfigurationBuilder builder = new CoreConfigurationBuilder(this)
+                .withBuildConfigClass(BuildConfig.class)
+                .withReportFormat(StringFormat.KEY_VALUE_LIST);
+        //builder.getPluginConfigurationBuilder(ToastConfigurationBuilder.class)
+        //        .setResText(R.string.acra_toast_text)
+        //        .setEnabled(true);
+        builder.getPluginConfigurationBuilder(NotificationConfigurationBuilder.class)
+                .withResChannelName(R.string.notification_channel_crash_report)
+                .withResChannelImportance(NotificationManager.IMPORTANCE_DEFAULT)
+                .withResIcon(R.drawable.ic_exclamation_notify)
+                .withResTitle(R.string.acra_notification_title)
+                .withResText(R.string.acra_notification_text)
+                .withResSendButtonIcon(0)
+                .withResDiscardButtonIcon(0)
+                .withSendOnClick(true)
+                .withEnabled(true);
+        builder.getPluginConfigurationBuilder(MailSenderConfigurationBuilder.class)
+                .withMailTo("henrich.gron@gmail.com")
+                .withResSubject(R.string.acra_email_subject_text)
+                .withResBody(R.string.acra_email_body_text)
+                .withReportAsFile(true)
+                .withReportFileName("crash_report.txt")
+                .withEnabled(true);
+
+        ACRA.init(this, builder);
+        */
     }
 
 //    @NonNull
@@ -1196,8 +1238,8 @@ public class PPApplication extends Application
     static void cancelWork(final String name, final boolean forceCancel) {
         // cancel only enqueued works
         PPApplication.startHandlerThreadCancelWork();
-        final Handler handler = new Handler(PPApplication.handlerThreadCancelWork.getLooper());
-        handler.post(() -> {
+        final Handler __handler = new Handler(PPApplication.handlerThreadCancelWork.getLooper());
+        __handler.post(() -> {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.cancelWork", "name="+name);
 
             WorkManager workManager = PPApplication.getWorkManagerInstance();
@@ -1358,7 +1400,8 @@ public class PPApplication extends Application
 
         updateGUI(0, appContext/*, true, true*/);
 
-        if (!oldApplicationFullyStarted && normalServiceStart) {
+        if (!oldApplicationFullyStarted && normalServiceStart && showToastForProfileActivation) {
+            // it is not restart of application by system
             String text = context.getString(R.string.ppp_app_name) + " " + context.getString(R.string.application_is_started_toast);
             showToast(appContext, text, Toast.LENGTH_SHORT);
         }
@@ -1368,20 +1411,26 @@ public class PPApplication extends Application
 
     //--------------------------------------------------------------
 
-    static void addActivityLog(final Context context, final int logType, final String eventName,
+    static void addActivityLog(Context context, final int logType, final String eventName,
                                final String profileName, final String profileIcon,
                                final int durationDelay, final String profilesEventsCount) {
         if (PPApplication.prefActivityLogEnabled) {
             PPApplication.startHandlerThread(/*"AlarmClockBroadcastReceiver.onReceive"*/);
-            final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-            handler.post(() -> {
+            final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+            __handler.post(new PPApplication.PPHandlerThreadRunnable(context.getApplicationContext()) {
+                @Override
+                public void run() {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=PPApplication.addActivityLog");
 
-                //if (ApplicationPreferences.preferences == null)
-                //    ApplicationPreferences.preferences = context.getSharedPreferences(PPApplication.APPLICATION_PREFS_NAME, Context.MODE_PRIVATE);
-                //ApplicationPreferences.setApplicationDeleteOldActivityLogs(context, Integer.valueOf(preferences.getString(ApplicationPreferences.PREF_APPLICATION_DELETE_OLD_ACTIVITY_LOGS, "7")));
-                DatabaseHandler.getInstance(context).addActivityLog(ApplicationPreferences.applicationDeleteOldActivityLogs,
-                       logType, eventName, profileName, profileIcon, durationDelay, profilesEventsCount);
+                    Context context= appContextWeakRef.get();
+                    if (context != null) {
+                        //if (ApplicationPreferences.preferences == null)
+                        //    ApplicationPreferences.preferences = context.getSharedPreferences(PPApplication.APPLICATION_PREFS_NAME, Context.MODE_PRIVATE);
+                        //ApplicationPreferences.setApplicationDeleteOldActivityLogs(context, Integer.valueOf(preferences.getString(ApplicationPreferences.PREF_APPLICATION_DELETE_OLD_ACTIVITY_LOGS, "7")));
+                        DatabaseHandler.getInstance(context).addActivityLog(ApplicationPreferences.applicationDeleteOldActivityLogs,
+                                logType, eventName, profileName, profileIcon, durationDelay, profilesEventsCount);
+                    }
+                }
             });
         }
     }
@@ -1776,30 +1825,37 @@ public class PPApplication extends Application
             }
 
             PPApplication.startHandlerThread(/*"ActionForExternalApplicationActivity.onStart.1"*/);
-            final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-            handler.postDelayed(() -> {
+            final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+            __handler.postDelayed(new PPApplication.PPHandlerThreadRunnable(
+                    context.getApplicationContext()) {
+                @Override
+                public void run() {
 //            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=PPApplication.updateGUI");
 
-                PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
-                try {
-                    if (powerManager != null) {
-                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":PPApplication_updateGUI");
-                        wakeLock.acquire(10 * 60 * 1000);
-                    }
+                    Context appContext= appContextWeakRef.get();
+                    if (appContext != null) {
+                        PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                        PowerManager.WakeLock wakeLock = null;
+                        try {
+                            if (powerManager != null) {
+                                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":PPApplication_updateGUI");
+                                wakeLock.acquire(10 * 60 * 1000);
+                            }
 
 //                    PPApplication.logE("PPApplication.updateGUI", "call of forceUpdateGUI");
-                    PPApplication.forceUpdateGUI(appContext, true, true/*, true*/);
+                            PPApplication.forceUpdateGUI(appContext, true, true/*, true*/);
 
 //                PPApplication.logE("PPApplication.startHandlerThread", "END run - from=PPApplication.updateGUI");
-                } catch (Exception e) {
+                        } catch (Exception e) {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                    PPApplication.recordException(e);
-                } finally {
-                    if ((wakeLock != null) && wakeLock.isHeld()) {
-                        try {
-                            wakeLock.release();
-                        } catch (Exception ignored) {
+                            PPApplication.recordException(e);
+                        } finally {
+                            if ((wakeLock != null) && wakeLock.isHeld()) {
+                                try {
+                                    wakeLock.release();
+                                } catch (Exception ignored) {
+                                }
+                            }
                         }
                     }
                 }
@@ -2435,7 +2491,7 @@ public class PPApplication extends Application
                 // The user-visible description of the channel.
                 String description = context.getString(R.string.empty_string);
 
-                NotificationChannel channel = new NotificationChannel(EXCLAMATION_NOTIFICATION_CHANNEL, name, NotificationManager.IMPORTANCE_DEFAULT);
+                NotificationChannel channel = new NotificationChannel(EXCLAMATION_NOTIFICATION_CHANNEL, name, NotificationManager.IMPORTANCE_HIGH);
 
                 // Configure the notification channel.
                 //channel.setImportance(importance);
@@ -2467,7 +2523,7 @@ public class PPApplication extends Application
                 // The user-visible description of the channel.
                 String description = context.getString(R.string.notification_channel_grant_permission_description);
 
-                NotificationChannel channel = new NotificationChannel(GRANT_PERMISSION_NOTIFICATION_CHANNEL, name, NotificationManager.IMPORTANCE_DEFAULT);
+                NotificationChannel channel = new NotificationChannel(GRANT_PERMISSION_NOTIFICATION_CHANNEL, name, NotificationManager.IMPORTANCE_HIGH);
 
                 // Configure the notification channel.
                 //channel.setImportance(importance);
@@ -2532,7 +2588,7 @@ public class PPApplication extends Application
                 // The user-visible description of the channel.
                 String description = context.getString(R.string.notification_channel_not_used_mobile_cell_description);
 
-                NotificationChannel channel = new NotificationChannel(NOT_USED_MOBILE_CELL_NOTIFICATION_CHANNEL, name, NotificationManager.IMPORTANCE_DEFAULT);
+                NotificationChannel channel = new NotificationChannel(NOT_USED_MOBILE_CELL_NOTIFICATION_CHANNEL, name, NotificationManager.IMPORTANCE_HIGH);
 
                 // Configure the notification channel.
                 //channel.setImportance(importance);
@@ -3846,6 +3902,12 @@ public class PPApplication extends Application
                 Build.FINGERPRINT.toLowerCase().contains("realme");
     }
 
+    private static boolean isLenovo() {
+        return Build.BRAND.equalsIgnoreCase("lenovo") ||
+                Build.MANUFACTURER.equalsIgnoreCase("lenovo") ||
+                Build.FINGERPRINT.toLowerCase().contains("lenovo");
+    }
+
     private static String getReadableModVersion() {
         String modVer = getSystemProperty(SYS_PROP_MOD_VERSION);
         return (modVer == null || modVer.length() == 0 ? "Unknown" : modVer);
@@ -4019,39 +4081,50 @@ public class PPApplication extends Application
         }
     }
 
-    static void exitApp(final boolean useHandler, final Context context, final DataWrapper dataWrapper, final Activity activity,
+    static void exitApp(final boolean useHandler, Context context, DataWrapper dataWrapper, Activity activity,
                                  final boolean shutdown/*, final boolean killProcess*//*, final boolean removeAlarmClock*/) {
         try {
             if (useHandler) {
                 PPApplication.startHandlerThread(/*"PPApplication.exitApp"*/);
-                final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-                handler.post(() -> {
+                final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+                __handler.post(new ExitAppRunnable(context.getApplicationContext(), dataWrapper, activity) {
+                    @Override
+                    public void run() {
 //                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=PPApplication.exitApp");
 
-                    PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                    PowerManager.WakeLock wakeLock = null;
-                    try {
-                        if (powerManager != null) {
-                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":PPApplication_exitApp");
-                            wakeLock.acquire(10 * 60 * 1000);
-                        }
+                        Context appContext= appContextWeakRef.get();
+                        DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                        Activity activity = activityWeakRef.get();
 
-                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                        if ((appContext != null) && (dataWrapper != null) && (activity != null)) {
+                            PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                            PowerManager.WakeLock wakeLock = null;
                             try {
-                                wakeLock.release();
-                            } catch (Exception ignored) {}
-                        }
-                        _exitApp(context, dataWrapper, activity, shutdown/*, killProcess*/);
+                                if (powerManager != null) {
+                                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":PPApplication_exitApp");
+                                    wakeLock.acquire(10 * 60 * 1000);
+                                }
 
-                        //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=PPApplication.exitApp");
-                    } catch (Exception e) {
+                                if ((wakeLock != null) && wakeLock.isHeld()) {
+                                    try {
+                                        wakeLock.release();
+                                    } catch (Exception ignored) {
+                                    }
+                                }
+                                _exitApp(context, dataWrapper, activity, shutdown/*, killProcess*/);
+
+                                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=PPApplication.exitApp");
+                            } catch (Exception e) {
 //                            PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                        PPApplication.recordException(e);
-                    } finally {
-                        if ((wakeLock != null) && wakeLock.isHeld()) {
-                            try {
-                                wakeLock.release();
-                            } catch (Exception ignored) {}
+                                PPApplication.recordException(e);
+                            } finally {
+                                if ((wakeLock != null) && wakeLock.isHeld()) {
+                                    try {
+                                        wakeLock.release();
+                                    } catch (Exception ignored) {
+                                    }
+                                }
+                            }
                         }
                     }
                 });
@@ -4064,6 +4137,71 @@ public class PPApplication extends Application
     }
 
     static void showDoNotKillMyAppDialog(final Fragment fragment) {
+/*
+        new AsyncTask<Void, Void, String>() {
+            @Override
+            protected String doInBackground(Void... voids) {
+                try {
+                    //noinspection RegExpRedundantEscape
+                    return ((JSONObject) new JSONTokener(
+                            InputStreamUtil.read(new URL("https://dontkillmyapp.com/api/v2/"+Build.MANUFACTURER.toLowerCase().replaceAll(" ", "-")+".json").openStream())).nextValue()
+                    ).getString("user_solution").replaceAll("\\[[Yy]our app\\]", fragment.getString(R.string.app_name));
+                } catch (Exception e) {
+                    // This vendor is not in the DontKillMyApp list
+                    Log.e("PhoneProfilesPrefsFragment.applicationDoNotKillMyApp", Log.getStackTraceString(e));
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(String result) {
+                try {
+                    if (result != null) {
+                        //Log.e("PhoneProfilesPrefsFragment.applicationDoNotKillMyApp", result);
+
+                        String head = "<head><style>img{max-width: 100%; width:auto; height: auto;}</style></head>";
+                        String html = "<html>" + head + "<body>" + result + "</body></html>";
+
+                        WebView wv = new WebView(fragment.getContext());
+                        WebSettings settings = wv.getSettings();
+                        WebSettings.LayoutAlgorithm layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING;
+                        settings.setLayoutAlgorithm(layoutAlgorithm);
+                        wv.loadData(html, "text/html; charset=utf-8", "UTF-8");
+                        wv.setWebViewClient(new WebViewClient() {
+                            @Override
+                            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                                view.loadUrl(url);
+                                return true;
+                            }
+                        });
+
+                        //noinspection ConstantConditions
+                        new AlertDialog.Builder(fragment.getContext())
+                                .setTitle("How to make my app work")
+                                .setView(wv).setPositiveButton(android.R.string.ok, null).show();
+
+                    }
+                    else {
+                        String url = "https://dontkillmyapp.com/";
+                        Intent i = new Intent(Intent.ACTION_VIEW);
+                        i.setData(Uri.parse(url));
+                        try {
+                            fragment.startActivity(Intent.createChooser(i, fragment.getString(R.string.web_browser_chooser)));
+                        } catch (Exception ignored) {}
+                    }
+                } catch (Exception e) {
+                    Log.e("PhoneProfilesPrefsFragment.applicationDoNotKillMyApp", Log.getStackTraceString(e));
+                    String url = "https://dontkillmyapp.com/";
+                    Intent i = new Intent(Intent.ACTION_VIEW);
+                    i.setData(Uri.parse(url));
+                    try {
+                        fragment.startActivity(Intent.createChooser(i, fragment.getString(R.string.web_browser_chooser)));
+                    } catch (Exception ignored) {}
+                }
+            }
+        }.execute();
+*/
+
         if (fragment.getActivity() != null) {
             AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(fragment.getActivity());
             dialogBuilder.setTitle(R.string.phone_profiles_pref_applicationDoNotKillMyApp_dialogTitle);
@@ -4095,6 +4233,7 @@ public class PPApplication extends Application
             if (!fragment.getActivity().isFinishing())
                 dialog.show();
         }
+
     }
 
     static void startHandlerThread(/*String from*/) {
@@ -4212,6 +4351,30 @@ public class PPApplication extends Application
         else {
             PPApplication.cancelWork(DisableBlockProfileEventActionWorker.WORK_TAG, false);
         }
+    }
+
+    static abstract class PPHandlerThreadRunnable implements Runnable {
+
+        public final WeakReference<Context> appContextWeakRef;
+
+        public PPHandlerThreadRunnable(Context appContext) {
+            this.appContextWeakRef = new WeakReference<>(appContext);
+        }
+
+    }
+
+    private static abstract class ExitAppRunnable implements Runnable {
+
+        public final WeakReference<Context> appContextWeakRef;
+        public final WeakReference<DataWrapper> dataWrapperWeakRef;
+        public final WeakReference<Activity> activityWeakRef;
+
+        public ExitAppRunnable(Context appContext, DataWrapper dataWrapper, Activity activity) {
+            this.appContextWeakRef = new WeakReference<>(appContext);
+            this.dataWrapperWeakRef = new WeakReference<>(dataWrapper);
+            this.activityWeakRef = new WeakReference<>(activity);
+        }
+
     }
 
     //--------------------
@@ -4378,7 +4541,7 @@ public class PPApplication extends Application
             return null;
     }
 
-    // Firebase Crashlytics -------------------------------------------------------------------------
+    // ACRA -------------------------------------------------------------------------
 
     static void recordException(Throwable ex) {
         try {

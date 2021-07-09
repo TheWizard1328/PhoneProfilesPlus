@@ -39,7 +39,8 @@ public class BackgroundActivateProfileActivity extends AppCompatActivity {
         profile_id = intent.getLongExtra(PPApplication.EXTRA_PROFILE_ID, 0);
 
         if ((startupSource == PPApplication.STARTUP_SOURCE_WIDGET) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_SHORTCUT)) {
+            (startupSource == PPApplication.STARTUP_SOURCE_SHORTCUT) ||
+            (startupSource == PPApplication.STARTUP_SOURCE_QUICK_TILE)) {
 
             dataWrapper = new DataWrapper(getApplicationContext(), false, 0, false);
         }
@@ -65,7 +66,8 @@ public class BackgroundActivateProfileActivity extends AppCompatActivity {
 
         if (activityStarted) {
             if ((startupSource == PPApplication.STARTUP_SOURCE_WIDGET) ||
-                    (startupSource == PPApplication.STARTUP_SOURCE_SHORTCUT)) {
+                    (startupSource == PPApplication.STARTUP_SOURCE_SHORTCUT) ||
+                    (startupSource == PPApplication.STARTUP_SOURCE_QUICK_TILE)) {
                 if (profile_id == Profile.RESTART_EVENTS_PROFILE_ID) {
                     //if (Event.getGlobalEventsRunning()) {
                         // set theme and language for dialog alert ;-)
@@ -75,8 +77,10 @@ public class BackgroundActivateProfileActivity extends AppCompatActivity {
                         dataWrapper.restartEventsWithAlert(this);
                     //} else
                     //    finish();
-                } else
+                } else {
+                    PPApplication.showToastForProfileActivation = true;
                     dataWrapper.activateProfile(profile_id, startupSource, this, true);
+                }
             }
         }
         else {
@@ -87,7 +91,7 @@ public class BackgroundActivateProfileActivity extends AppCompatActivity {
 
     @SuppressWarnings("SameReturnValue")
     private boolean showNotStartedToast() {
-//        PPApplication.logE("[APP_START] BackgroundActivateProfileActivity.showNotStartedToast", "xxx");
+//        PPApplication.logE("[APP_START] BackgroundActivateProfileActivity.showNotStartedToast", "setApplicationFullyStarted");
         PPApplication.setApplicationFullyStarted(getApplicationContext());
         return false;
 /*        boolean applicationStarted = PPApplication.getApplicationStarted(true);

@@ -29,6 +29,7 @@ import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -83,7 +84,7 @@ public class DataWrapper {
         useMonochromeValueForCustomIcon = useMonoValForCustomIcon;
     }
 
-    private DataWrapper copyDataWrapper() {
+    DataWrapper copyDataWrapper() {
         DataWrapper dataWrapper = new DataWrapper(context, monochrome, monochromeValue, useMonochromeValueForCustomIcon);
         synchronized (profileList) {
             dataWrapper.copyProfileList(this);
@@ -876,29 +877,41 @@ public class DataWrapper {
         final DataWrapper dataWrapper = copyDataWrapper();
 
         PPApplication.startHandlerThread(/*"DataWrapper.setDynamicLauncherShortcutsFromMainThread"*/);
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(() -> {
+        final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+        __handler.post(new PPHandlerThreadRunnable(
+                context, dataWrapper, null, null) {
+            @Override
+            public void run() {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.setDynamicLauncherShortcutsFromMainThread");
 
-            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wakeLock = null;
-            try {
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_setDynamicLauncherShortcutsFromMainThread");
-                    wakeLock.acquire(10 * 60 * 1000);
-                }
+                Context appContext= appContextWeakRef.get();
+                DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                //Profile profile = profileWeakRef.get();
+                //Activity activity = activityWeakRef.get();
 
-                dataWrapper.setDynamicLauncherShortcuts();
-
-                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.setDynamicLauncherShortcutsFromMainThread");
-            } catch (Exception e) {
-//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                PPApplication.recordException(e);
-            } finally {
-                if ((wakeLock != null) && wakeLock.isHeld()) {
+                if ((appContext != null) && (dataWrapper != null) /*&& (profile != null) && (activity != null)*/) {
+                    PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                    PowerManager.WakeLock wakeLock = null;
                     try {
-                        wakeLock.release();
-                    } catch (Exception ignored) {}
+                        if (powerManager != null) {
+                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_setDynamicLauncherShortcutsFromMainThread");
+                            wakeLock.acquire(10 * 60 * 1000);
+                        }
+
+                        dataWrapper.setDynamicLauncherShortcuts();
+
+                        //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.setDynamicLauncherShortcutsFromMainThread");
+                    } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                        PPApplication.recordException(e);
+                    } finally {
+                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                            try {
+                                wakeLock.release();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -1026,34 +1039,46 @@ public class DataWrapper {
         restartEventsWithRescan(true, false, true, false, true, false);
     }
 
-    void stopEventsForProfileFromMainThread(final Profile profile,
+    void stopEventsForProfileFromMainThread(Profile profile,
                                             @SuppressWarnings("SameParameterValue") final boolean alsoUnlink) {
         final DataWrapper dataWrapper = copyDataWrapper();
 
         PPApplication.startHandlerThread(/*"DataWrapper.stopEventsForProfileFromMainThread"*/);
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(() -> {
+        final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+        __handler.post(new PPHandlerThreadRunnable(
+                context, dataWrapper, profile, null) {
+            @Override
+            public void run() {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.stopEventsForProfileFromMainThread");
 
-            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wakeLock = null;
-            try {
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_stopEventsForProfileFromMainThread");
-                    wakeLock.acquire(10 * 60 * 1000);
-                }
+                Context appContext= appContextWeakRef.get();
+                DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                Profile profile = profileWeakRef.get();
+                //Activity activity = activityWeakRef.get();
 
-                dataWrapper.stopEventsForProfile(profile, alsoUnlink);
-
-                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.stopEventsForProfileFromMainThread");
-            } catch (Exception e) {
-//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                PPApplication.recordException(e);
-            } finally {
-                if ((wakeLock != null) && wakeLock.isHeld()) {
+                if ((appContext != null) && (dataWrapper != null) && (profile != null) /*&& (activity != null)*/) {
+                    PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                    PowerManager.WakeLock wakeLock = null;
                     try {
-                        wakeLock.release();
-                    } catch (Exception ignored) {}
+                        if (powerManager != null) {
+                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_stopEventsForProfileFromMainThread");
+                            wakeLock.acquire(10 * 60 * 1000);
+                        }
+
+                        dataWrapper.stopEventsForProfile(profile, alsoUnlink);
+
+                        //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.stopEventsForProfileFromMainThread");
+                    } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                        PPApplication.recordException(e);
+                    } finally {
+                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                            try {
+                                wakeLock.release();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -1108,31 +1133,43 @@ public class DataWrapper {
         final DataWrapper dataWrapper = copyDataWrapper();
 
         PPApplication.startHandlerThread(/*"DataWrapper.pauseAllEventsForGlobalStopEvents"*/);
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(() -> {
+        final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+        __handler.post(new PPHandlerThreadRunnable(
+                context, dataWrapper, null, null) {
+            @Override
+            public void run() {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.pauseAllEventsForGlobalStopEvents");
 
-            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wakeLock = null;
-            try {
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_pauseAllEventsForGlobalStopEvents");
-                    wakeLock.acquire(10 * 60 * 1000);
-                }
+                Context appContext= appContextWeakRef.get();
+                DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                //Profile profile = profileWeakRef.get();
+                //Activity activity = activityWeakRef.get();
 
-                synchronized (PPApplication.eventsHandlerMutex) {
-                    dataWrapper.pauseAllEvents(true, false);
-                }
-
-                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.pauseAllEventsForGlobalStopEvents");
-            } catch (Exception e) {
-//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                PPApplication.recordException(e);
-            } finally {
-                if ((wakeLock != null) && wakeLock.isHeld()) {
+                if ((appContext != null) && (dataWrapper != null) /*&& (profile != null) && (activity != null)*/) {
+                    PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                    PowerManager.WakeLock wakeLock = null;
                     try {
-                        wakeLock.release();
-                    } catch (Exception ignored) {}
+                        if (powerManager != null) {
+                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_pauseAllEventsForGlobalStopEvents");
+                            wakeLock.acquire(10 * 60 * 1000);
+                        }
+
+                        synchronized (PPApplication.eventsHandlerMutex) {
+                            dataWrapper.pauseAllEvents(true, false);
+                        }
+
+                        //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.pauseAllEventsForGlobalStopEvents");
+                    } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                        PPApplication.recordException(e);
+                    } finally {
+                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                            try {
+                                wakeLock.release();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -1165,29 +1202,41 @@ public class DataWrapper {
         final DataWrapper dataWrapper = copyDataWrapper();
 
         PPApplication.startHandlerThread(/*"DataWrapper.stopAllEventsFromMainThread"*/);
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(() -> {
+        final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+        __handler.post(new PPHandlerThreadRunnable(
+                context, dataWrapper, null, null) {
+            @Override
+            public void run() {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.stopAllEventsFromMainThread");
 
-            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wakeLock = null;
-            try {
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_stopAllEventsFromMainThread");
-                    wakeLock.acquire(10 * 60 * 1000);
-                }
+                Context appContext= appContextWeakRef.get();
+                DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                //Profile profile = profileWeakRef.get();
+                //Activity activity = activityWeakRef.get();
 
-                dataWrapper.stopAllEvents(saveEventStatus, alsoDelete, true, true);
-
-                //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.stopAllEventsFromMainThread");
-            } catch (Exception e) {
-//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                PPApplication.recordException(e);
-            } finally {
-                if ((wakeLock != null) && wakeLock.isHeld()) {
+                if ((appContext != null) && (dataWrapper != null) /*&& (profile != null) && (activity != null)*/) {
+                    PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                    PowerManager.WakeLock wakeLock = null;
                     try {
-                        wakeLock.release();
-                    } catch (Exception ignored) {}
+                        if (powerManager != null) {
+                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_stopAllEventsFromMainThread");
+                            wakeLock.acquire(10 * 60 * 1000);
+                        }
+
+                        dataWrapper.stopAllEvents(saveEventStatus, alsoDelete, true, true);
+
+                        //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.stopAllEventsFromMainThread");
+                    } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                        PPApplication.recordException(e);
+                    } finally {
+                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                            try {
+                                wakeLock.release();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -1221,7 +1270,7 @@ public class DataWrapper {
         }
     }
 
-    void activateProfileOnBoot()
+    void activateProfileAtFirstStart()
     {
         if (ApplicationPreferences.applicationActivate)
         {
@@ -1247,27 +1296,29 @@ public class DataWrapper {
                     profileId = 0;
             }
 
-            activateProfile(profileId, PPApplication.STARTUP_SOURCE_BOOT, null, true);
+            activateProfile(profileId, PPApplication.STARTUP_SOURCE_FOR_FIRST_START, null, true);
         }
-        else
-            activateProfile(0, PPApplication.STARTUP_SOURCE_BOOT, null, true);
+        // do not remove last activated profile at first start
+        //else
+        //    activateProfile(0, startupSource, null, true);
     }
 
-    private void startEventsOnBoot(boolean startedFromService, boolean useHandler)
+    private void startEventsAtFirstStart(boolean startedFromService, boolean useHandler)
     {
 //        PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "START");
         if (startedFromService) {
-            if (ApplicationPreferences.applicationStartEvents) {
+            if (ApplicationPreferences.applicationActivate &&
+                    ApplicationPreferences.applicationStartEvents) {
                 //restartEvents(false, false, true, false, useHandler);
 //                PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "(1)");
                 restartEventsWithRescan(true, false, useHandler, false, false, false);
 //                restartEventsWithDelay(5, true, false, true, PPApplication.ALTYPE_UNDEFINED);
             }
             else {
-                Event.setGlobalEventsRunning(context, false);
-//                PPApplication.logE("[APP_START] DataWrapper.startEventsOnBoot", "PPApplication.setApplicationFullyStarted");
+                //Event.setGlobalEventsRunning(context, false);
+//                PPApplication.logE("[APP_START] DataWrapper.startEventsAtFirstStart", "setApplicationFullyStarted");
                 PPApplication.setApplicationFullyStarted(context);
-                activateProfileOnBoot();
+                activateProfileAtFirstStart();
             }
         }
         else {
@@ -1321,9 +1372,9 @@ public class DataWrapper {
         {
             PPApplication.logE("DataWrapper.firstStartEvents", "manual profile activation, activate profile");
 
-            activateProfileOnBoot();
+            activateProfileAtFirstStart();
         }
-        startEventsOnBoot(startedFromService, useHandler);
+        startEventsAtFirstStart(startedFromService, useHandler);
     }
 
     static Event getNonInitializedEvent(String name, int startOrder)
@@ -1719,7 +1770,7 @@ public class DataWrapper {
                 //PPApplication.logE("[ACTIVATOR] DataWrapper._activateProfile", "profileDuration="+profileDuration);
 
                 if (((startupSource != PPApplication.STARTUP_SOURCE_EVENT) &&
-                     (startupSource != PPApplication.STARTUP_SOURCE_BOOT) //&&
+                     (startupSource != PPApplication.STARTUP_SOURCE_FOR_FIRST_START) //&&
                    //(startupSource != PPApplication.STARTUP_SOURCE_LAUNCHER_START)
                 ) || (_profile._afterDurationDo == Profile.AFTER_DURATION_DO_SPECIFIC_PROFILE)) {
                     // activation with duration
@@ -1783,8 +1834,11 @@ public class DataWrapper {
 
             //if (mappedProfile != null)
             //{
-            if (ApplicationPreferences.notificationsToast && (!PPApplication.lockRefresh) &&
-                    (PPApplication.applicationFullyStarted && PPApplication.normalServiceStart)) {
+            if (ApplicationPreferences.notificationsToast &&
+                    (!PPApplication.lockRefresh) &&
+                    (PPApplication.applicationFullyStarted &&
+                            PPApplication.normalServiceStart &&
+                            PPApplication.showToastForProfileActivation)) {
                 // toast notification
                 if (PPApplication.toastHandler != null) {
                     final Profile __profile = _profile;
@@ -1799,50 +1853,62 @@ public class DataWrapper {
 //        }
     }
 
-    void activateProfileFromMainThread(final Profile profile, final boolean merged, final int startupSource,
-                                    final boolean interactive, final Activity _activity, final boolean testGrant)
+    void activateProfileFromMainThread(Profile profile, final boolean merged, final int startupSource,
+                                    final boolean interactive, Activity _activity, final boolean testGrant)
     {
         //PPApplication.logE("$$$$$ DataWrapper.activateProfileFromMainThread", "start");
         final DataWrapper dataWrapper = copyDataWrapper();
 
         PPApplication.startHandlerThread(/*"DataWrapper.activateProfileFromMainThread"*/);
-        final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-        handler.post(() -> {
+        final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+        __handler.post(new PPHandlerThreadRunnable(
+                context, dataWrapper, profile, _activity) {
+            @Override
+            public void run() {
 //                PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.activateProfileFromMainThread");
 
-            PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wakeLock = null;
-            try {
-                if (powerManager != null) {
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_activateProfileFromMainThread");
-                    wakeLock.acquire(10 * 60 * 1000);
-                }
+                Context appContext= appContextWeakRef.get();
+                DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                Profile profile = profileWeakRef.get();
+                Activity activity = activityWeakRef.get();
 
-                synchronized (PPApplication.eventsHandlerMutex) {
+                if ((appContext != null) && (dataWrapper != null) && (profile != null) && (activity != null)) {
+                    PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                    PowerManager.WakeLock wakeLock = null;
+                    try {
+                        if (powerManager != null) {
+                            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_activateProfileFromMainThread");
+                            wakeLock.acquire(10 * 60 * 1000);
+                        }
 
-                    boolean granted = true;
-                    if (testGrant)
-                        granted = !PhoneProfilesService.displayPreferencesErrorNotification(profile, null, context);
-                    if (granted) {
-                        //PPApplication.logE("&&&&&&& DataWrapper.activateProfileFromMainThread", "called is DataWrapper._activateProfile()");
-                        dataWrapper._activateProfile(profile, merged, startupSource, false);
-                        if (interactive) {
-                            DatabaseHandler.getInstance(dataWrapper.context).increaseActivationByUserCount(profile);
-                            dataWrapper.setDynamicLauncherShortcuts();
+                        synchronized (PPApplication.eventsHandlerMutex) {
+
+                            boolean granted = true;
+                            if (testGrant)
+                                granted = !PhoneProfilesService.displayPreferencesErrorNotification(profile, null, context);
+                            if (granted) {
+                                //PPApplication.logE("&&&&&&& DataWrapper.activateProfileFromMainThread", "called is DataWrapper._activateProfile()");
+                                dataWrapper._activateProfile(profile, merged, startupSource, false);
+                                if (interactive) {
+                                    DatabaseHandler.getInstance(dataWrapper.context).increaseActivationByUserCount(profile);
+                                    dataWrapper.setDynamicLauncherShortcuts();
+                                }
+                            }
+
+                        }
+
+                        //PPApplication.logE("$$$$$ PPApplication.startHandlerThread", "END run - from=DataWrapper.activateProfileFromMainThread");
+                    } catch (Exception e) {
+//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                        PPApplication.recordException(e);
+                    } finally {
+                        if ((wakeLock != null) && wakeLock.isHeld()) {
+                            try {
+                                wakeLock.release();
+                            } catch (Exception ignored) {
+                            }
                         }
                     }
-
-                }
-
-                //PPApplication.logE("$$$$$ PPApplication.startHandlerThread", "END run - from=DataWrapper.activateProfileFromMainThread");
-            } catch (Exception e) {
-//                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                PPApplication.recordException(e);
-            } finally {
-                if ((wakeLock != null) && wakeLock.isHeld()) {
-                    try {
-                        wakeLock.release();
-                    } catch (Exception ignored) {}
                 }
             }
         });
@@ -2042,7 +2108,7 @@ public class DataWrapper {
         Profile profile;
 
         // for activated profile is recommended update of activity
-        if (startupSource == PPApplication.STARTUP_SOURCE_BOOT) {
+        if (startupSource == PPApplication.STARTUP_SOURCE_FOR_FIRST_START) {
             long profileId = PPApplication.prefLastActivatedProfile;
             profile = getProfileById(profileId, false, false, false);
         }
@@ -2057,7 +2123,8 @@ public class DataWrapper {
             (startupSource == PPApplication.STARTUP_SOURCE_EDITOR) ||
             (startupSource == PPApplication.STARTUP_SOURCE_EVENT) ||
             (startupSource == PPApplication.STARTUP_SOURCE_EVENT_MANUAL) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER))
+            (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER) ||
+            (startupSource == PPApplication.STARTUP_SOURCE_QUICK_TILE))
         {
             // activation is invoked from shortcut, widget, Activator, Editor, service,
             // do profile activation
@@ -2065,7 +2132,7 @@ public class DataWrapper {
             //interactive = ((startupSource != PPApplication.STARTUP_SOURCE_EVENT));
         }
         else
-        if (startupSource == PPApplication.STARTUP_SOURCE_BOOT)
+        if (startupSource == PPApplication.STARTUP_SOURCE_FOR_FIRST_START)
         {
             // activation is invoked during device boot
 
@@ -2114,7 +2181,8 @@ public class DataWrapper {
             (startupSource == PPApplication.STARTUP_SOURCE_EDITOR) ||
             (startupSource == PPApplication.STARTUP_SOURCE_EVENT) ||
             //(startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER_START) ||
-            (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER))
+            (startupSource == PPApplication.STARTUP_SOURCE_LAUNCHER) ||
+            (startupSource == PPApplication.STARTUP_SOURCE_QUICK_TILE))
         {
             if (profile_id == 0)
                 profile = null;
@@ -2126,9 +2194,9 @@ public class DataWrapper {
         if (actProfile && (profile != null))
         {
             // profile activation
-            if (startupSource == PPApplication.STARTUP_SOURCE_BOOT) {
+            if (startupSource == PPApplication.STARTUP_SOURCE_FOR_FIRST_START) {
                 //PPApplication.logE("&&&&&&& DataWrapper.activateProfile", "called is DataWrapper.activateProfileFromMainThread");
-                activateProfileFromMainThread(profile, false, PPApplication.STARTUP_SOURCE_BOOT,
+                activateProfileFromMainThread(profile, false, PPApplication.STARTUP_SOURCE_FOR_FIRST_START,
                         false, null, testGrant);
             }
             else
@@ -2378,29 +2446,40 @@ public class DataWrapper {
             final DataWrapper dataWrapper = copyDataWrapper();
 
             PPApplication.startHandlerThread(/*"DataWrapper.restartEventsWithRescan"*/);
-            final Handler handler = new Handler(PPApplication.handlerThread.getLooper());
-            handler.post(() -> {
+            final Handler __handler = new Handler(PPApplication.handlerThread.getLooper());
+            __handler.post(new PPHandlerThreadRunnable(
+                    context, dataWrapper, null, null) {
+                @Override
+                public void run() {
 //                    PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", "START run - from=DataWrapper.restartEventsWithRescan");
 
-                PowerManager powerManager = (PowerManager) dataWrapper.context.getSystemService(Context.POWER_SERVICE);
-                PowerManager.WakeLock wakeLock = null;
-                try {
-                    if (powerManager != null) {
-                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_restartEventsWithRescan");
-                        wakeLock.acquire(10 * 60 * 1000);
-                    }
+                    Context appContext= appContextWeakRef.get();
+                    DataWrapper dataWrapper = dataWrapperWeakRef.get();
+                    //Profile profile = profileWeakRef.get();
+                    //Activity activity = activityWeakRef.get();
 
-                    dataWrapper._restartEventsWithRescan(alsoRescan, unblockEventsRun, manualRestart, logRestart);
-
-                    //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.restartEventsWithRescan");
-                } catch (Exception e) {
-//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
-                    PPApplication.recordException(e);
-                } finally {
-                    if ((wakeLock != null) && wakeLock.isHeld()) {
+                    if ((appContext != null) && (dataWrapper != null) /*&& (profile != null) && (activity != null)*/) {
+                        PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
+                        PowerManager.WakeLock wakeLock = null;
                         try {
-                            wakeLock.release();
-                        } catch (Exception ignored) {
+                            if (powerManager != null) {
+                                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PPApplication.PACKAGE_NAME + ":DataWrapper_restartEventsWithRescan");
+                                wakeLock.acquire(10 * 60 * 1000);
+                            }
+
+                            dataWrapper._restartEventsWithRescan(alsoRescan, unblockEventsRun, manualRestart, logRestart);
+
+                            //PPApplication.logE("PPApplication.startHandlerThread", "END run - from=DataWrapper.restartEventsWithRescan");
+                        } catch (Exception e) {
+//                        PPApplication.logE("[IN_THREAD_HANDLER] PPApplication.startHandlerThread", Log.getStackTraceString(e));
+                            PPApplication.recordException(e);
+                        } finally {
+                            if ((wakeLock != null) && wakeLock.isHeld()) {
+                                try {
+                                    wakeLock.release();
+                                } catch (Exception ignored) {
+                                }
+                            }
                         }
                     }
                 }
@@ -2409,7 +2488,7 @@ public class DataWrapper {
         else
             _restartEventsWithRescan(alsoRescan, unblockEventsRun, manualRestart, logRestart);
 
-        if (showToast) {
+        if (showToast && PPApplication.showToastForProfileActivation) {
             if (ApplicationPreferences.notificationsToast) {
                 PPApplication.showToast(context.getApplicationContext(),
                         context.getResources().getString(R.string.toast_events_restarted),
@@ -2422,6 +2501,8 @@ public class DataWrapper {
     {
         if (!Event.getGlobalEventsRunning()) {
             // events are globally stopped
+
+            PPApplication.showToastForProfileActivation = true;
 
             // show toast about hot working restart events, because global events run is disabled
             PPApplication.showToast(context.getApplicationContext(),
@@ -3339,4 +3420,24 @@ public class DataWrapper {
             saveActivatedProfilesFIFO(activateProfilesFIFO);
         }
     }
+
+    private static abstract class PPHandlerThreadRunnable implements Runnable {
+
+        public final WeakReference<Context> appContextWeakRef;
+        public final WeakReference<DataWrapper> dataWrapperWeakRef;
+        public final WeakReference<Profile> profileWeakRef;
+        public final WeakReference<Activity> activityWeakRef;
+
+        public PPHandlerThreadRunnable(Context appContext,
+                                       DataWrapper dataWrapper,
+                                       Profile profile,
+                                       Activity activity) {
+            this.appContextWeakRef = new WeakReference<>(appContext);
+            this.dataWrapperWeakRef = new WeakReference<>(dataWrapper);
+            this.profileWeakRef = new WeakReference<>(profile);
+            this.activityWeakRef = new WeakReference<>(activity);
+        }
+
+    }
+
 }
